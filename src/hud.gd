@@ -153,7 +153,8 @@ func draw_menu() -> void:
 	text("GOAL", Vector2(55, 221), 112, CREAM, true)
 	text("RUSH", Vector2(55, 326), 112, ORANGE, true)
 	text("Small pitch. Big trouble.", Vector2(66, 375), 25, CREAM)
-	var options: Array = ["KICK OFF", "PLAYERS     %d" % game.humans, "CONTROLS    %s" % ("DUAL" if game.dual_stick else "CLASSIC"), "MATCH       %d MIN" % (game.match_seconds / 60), "SOUND       %s" % ("ON" if game.sound_enabled else "OFF")]
+	var matchup: String = "MATCHUP     %s" % ("1v1" if game.humans == 2 else "SOLO vs AI") if game.dual_stick else "PLAYERS     %d" % game.humans
+	var options: Array = ["KICK OFF", matchup, "CONTROLS    %s" % ("DUAL" if game.dual_stick else "CLASSIC"), "MATCH       %d MIN" % (game.match_seconds / 60), "SOUND       %s" % ("ON" if game.sound_enabled else "OFF")]
 	for i in options.size():
 		var rect := Rect2(61, 421 + i * 64, 475, 53)
 		hit_rects.append(rect)

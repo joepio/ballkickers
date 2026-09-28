@@ -11,6 +11,9 @@ needed. Keep `GoalRush.pck` beside it. Alternatively open `project.godot` in God
 The default **Dual** experiment gives each person a whole team: two outfield
 players, plus an automatic goalkeeper. One or two people play, one controller
 per team. With one person, the other team uses the existing AI.
+The menu defaults to **1v1** (two controllers). At every kickoff and rematch,
+each team's L unit starts screen-left of its R unit; stick ownership stays fixed
+while you play, even if the units cross each other.
 
 | Half | Move and aim | Shoot / tackle | Keyboard fallback |
 |---|---|---|---|

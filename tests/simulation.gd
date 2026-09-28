@@ -131,6 +131,10 @@ func _initialize() -> void:
 	check(s.players[0].human == 0 and s.players[2].human == 1 and s.players[1].human == -1, "one dual controller owns both teammates and leaves opponent bots")
 	s.setup(2, false, 90, 120, true)
 	check(s.players[1].human == 2 and s.players[3].human == 3, "second dual controller owns the opposing pair")
+	for kickoff_team in [-1, 0, 1]:
+		s.kickoff(kickoff_team)
+		check(s.players[0].pos.x < s.players[2].pos.x and s.players[1].pos.x < s.players[3].pos.x, "L starts left of R for both teams at kickoff %d" % kickoff_team)
+		check(s.players[0].human == 0 and s.players[2].human == 1 and s.players[1].human == 2 and s.players[3].human == 3, "kickoff preserves fixed stick ownership")
 	s.phase = "play"
 	s.players[0].pos = Vector2.ZERO
 	s.players[2].pos = Vector2(0, 5)

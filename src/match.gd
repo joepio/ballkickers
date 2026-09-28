@@ -72,7 +72,10 @@ func kickoff(team: int) -> void:
 	for i in players.size():
 		var p: Dictionary = players[i]
 		var direction: float = 1 if p.team == 0 else -1
-		p.pos = Vector2(-direction * (5.5 if p.role == 0 else 12.0), 0 if p.role == 0 else 4.5)
+		# Screen X increases to the right for both teams. Mirror the formation,
+		# not the controller halves: L starts left and R starts right each kickoff.
+		var spawn_role: int = 1 - p.role if dual_control and p.team == 0 else p.role
+		p.pos = Vector2(-direction * (5.5 if spawn_role == 0 else 12.0), 0 if spawn_role == 0 else 4.5)
 		p.vel = Vector2.ZERO
 		p.face = Vector2(direction, 0)
 		p.stun = 0.0
@@ -89,7 +92,8 @@ func kickoff(team: int) -> void:
 	ball_controller_team = -1
 	pickup_lock = 0.0
 	if team >= 0:
-		players[team].pos = Vector2(-1.0 if team == 0 else 1.0, 0)
+		var taker: int = 2 if dual_control and team == 0 else team
+		players[taker].pos = Vector2(-1.0 if team == 0 else 1.0, 0)
 	phase = "kickoff"
 	phase_time = 2.2
 

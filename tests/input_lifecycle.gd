@@ -14,6 +14,7 @@ func run() -> void:
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
+	check(game.humans == 2 and game.dual_stick, "standalone menu defaults to 1v1 dual-controller play")
 	game.set_process(false)
 	game.set_physics_process(false)
 	game.sound_enabled = false
