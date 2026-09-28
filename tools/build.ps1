@@ -9,6 +9,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Godot import failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Simulation checks failed' }
 & $Godot --headless --path $goalRoot --script res://tests/input_lifecycle.gd
 if ($LASTEXITCODE -ne 0) { throw 'Input/lifecycle checks failed' }
+& $Godot --headless --path $goalRoot --script res://tests/modes_keepers.gd
+if ($LASTEXITCODE -ne 0) { throw 'Modes/keeper checks failed' }
 & $Godot --headless --path $goalRoot --export-pack 'Windows Desktop' (Join-Path $goalOutput 'GoalRush.pck')
 if ($LASTEXITCODE -ne 0) { throw 'Pack export failed' }
 # The installed editor can run a same-named PCK without export templates.

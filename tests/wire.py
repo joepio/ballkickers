@@ -15,6 +15,9 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 GODOT = sys.argv[1] if len(sys.argv) > 1 else "C:/dev/tools/godot/Godot_v4.5.2-stable_win64_console.exe"
+TEAMS = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+assert 1 <= TEAMS <= 3
+GAME_ID = "goal-rush" if TEAMS == 1 else f"goal-rush-{TEAMS}v{TEAMS}"
 
 def exact(sock, count):
     result = b""
@@ -51,11 +54,11 @@ with socket.socket() as server:
     server.bind(("127.0.0.1",0))
     server.listen(1)
     server.settimeout(12)
-    env = dict(os.environ, GAMENIGHT="1", GAMENIGHT_ADDR=f"127.0.0.1:{server.getsockname()[1]}", GAMENIGHT_GAME_ID="goal-rush", GAMENIGHT_TOKEN="local-test-token")
+    env = dict(os.environ, GAMENIGHT="1", GAMENIGHT_ADDR=f"127.0.0.1:{server.getsockname()[1]}", GAMENIGHT_GAME_ID=GAME_ID, GAMENIGHT_TOKEN="local-test-token")
     log_path = ROOT / "captures" / "wire.log"
     log = log_path.open("w", encoding="utf-8")
     project_args = [] if Path(GODOT).stem == "GoalRush" else ["--path",str(ROOT)]
-    process = subprocess.Popen([GODOT.replace("_console.exe", ".exe"),"--headless","--audio-driver","Dummy",*project_args,"--","--mute"], env=env, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, text=True)
+    process = subprocess.Popen([GODOT.replace("_console.exe", ".exe"),"--headless","--audio-driver","Dummy",*project_args,"--","--mute",f"--teams={TEAMS}"], env=env, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, text=True)
     try:
         with server.accept()[0] as peer:
             peer.settimeout(8)
@@ -66,11 +69,14 @@ with socket.socket() as server:
             accept = base64.b64encode(hashlib.sha1((key+"258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()).decode()
             peer.sendall(f"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n".encode())
             hello = expect(peer,"hello")
-            assert hello["game"]=="goal-rush" and hello["token"]=="local-test-token"
+            assert hello["game"]==GAME_ID and hello["token"]=="local-test-token"
             send(peer,{"type":"welcome","protocol_version":1,"party":{}})
             expect(peer,"declare_settings")
             players = [{"id":"p1","name":"Marsh"}]
             seats = [{"index":0,"controller":"test-device-9","occupant":{"kind":"local","player_id":"p1"}}]
+            for index in range(1, TEAMS * 2):
+                players.append({"id":f"p{index+1}","name":f"Guest {index+1}"})
+                seats.append({"index":index,"controller":f"other-device-{index}","occupant":{"kind":"local","player_id":f"p{index+1}"}})
             send(peer,{"type":"prepare","session":"wire-a","players":players,"seats":seats})
             assert expect(peer,"participation")["instant_join"] is False
             assert expect(peer,"ready")["session"]=="wire-a"

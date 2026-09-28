@@ -85,11 +85,15 @@ func _initialize() -> void:
 	check(s.keeper_owner == 1 and s.stats.saves == 1 and s.score[0] == 0, "keeper catches a straight slower shot")
 	for frame in 65: s.step(1.0 / 120)
 	check(s.keeper_owner == -1 and s.ball_velocity.x < -1, "keeper distributes promptly back into play")
-	s.setup(0)
-	s.phase = "play"
-	s.ball = Vector3(17, .5, 0)
-	s.ball_velocity = Vector3(100, 0, 0)
-	s.move_ball(.05)
+	# A powerful shot can now beat the keeper; find a seeded successful save
+	# to exercise swept collision and the dangerous follow-up rebound.
+	for seed_value in 40:
+		s.setup(0, false, seed_value)
+		s.phase = "play"
+		s.ball = Vector3(17, .5, 0)
+		s.ball_velocity = Vector3(100, 0, 0)
+		s.move_ball(.05)
+		if s.stats.saves > 0: break
 	check(s.score[0] == 0 and s.ball_velocity.x < 0 and s.keepers[1].recovery > .5, "swept save stops tunnelling and parries powerful shots")
 	s.ball = Vector3(18.7, .5, 0)
 	s.ball_velocity = Vector3(50, 0, 0)

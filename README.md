@@ -1,6 +1,6 @@
 # Goal Rush
 
-A playful, fast 2v2 party football prototype for Godot 4.5.2. Original procedural
+A playful, fast party football prototype for Godot 4.5.2. Original procedural
 stadium, marshmallow athletes, synthesised Foley and arcade ball physics.
 
 ## Play
@@ -8,9 +8,12 @@ stadium, marshmallow athletes, synthesised Foley and arcade ball physics.
 Open `build/GoalRush.exe`. It is a standalone Windows build; no Godot install is
 needed. Keep `GoalRush.pck` beside it. Alternatively open `project.godot` in Godot.
 
-The default **Dual** experiment gives each person a whole team: two outfield
-players, plus an automatic goalkeeper. One or two people play, one controller
-per team. With one person, the other team uses the existing AI.
+The default **1v1 Dual** experiment gives each person two outfield players.
+Select **2v2 or 3v3** in Matchup for one unit per controller, plus an automatic
+keeper on each team. Three humans in 2v2 or five in 3v3 get one bot in the empty
+place. Controller seats alternate orange/blue teams and retain ownership.
+Larger modes have two or three times the pitch area, with unchanged unit and
+goal sizes. `-- --teams=2` or `-- --teams=3` selects them on launch.
 The menu defaults to **1v1** (two controllers). At every kickoff and rematch,
 each team's L unit starts screen-left of its R unit; stick ownership stays fixed
 while you play, even if the units cross each other.
@@ -22,8 +25,13 @@ while you play, even if the units cross each other.
 
 Hold a shoulder button with the ball to charge, release to shoot. Without the
 ball, press it to dash/tackle. Contact with a loose ball during the dash kicks
-it immediately. White (left) and yellow (right) ground arrows show aim and
-extend as shots charge. There is no hidden goal-aim assist in Dual mode.
+it immediately. Team-colored ground triangles show aim and extend only as shots
+charge. A half-filled circle above each unit identifies the controlling stick:
+left half for the left stick, right half for the right. There is no hidden
+goal-aim assist in Dual mode.
+In 2v2/3v3, use the **left stick** to move/aim and **either LB or RB** to shoot or
+tackle (keyboard: WASD + Q). Markers have transparent backgrounds, a team-colored
+outline and distinct white/gold/lilac centers for teammates. No P1/P2 labels.
 Passing, sprinting and automatic switching are disabled for this experiment.
 The two units keep their left/right assignments throughout the match.
 
@@ -44,11 +52,12 @@ holding a shot for at least 0.85 seconds with a full meter releases a powerful
 shot that knocks opponents aside. Matches last 1–5 minutes; ties enter golden
 goal. Start/Enter instantly rematches after the result.
 
-Keepers track the ball, commit to diving saves and catch slower shots. Hard shots
-produce rebounds and leave them recovering, so corners and follow-up shots can
-beat them. Catches are distributed to an open teammate after half a second.
+Keepers track the ball and commit to diving saves. Save probability decreases
+with ball speed and contact near the edge of their reach, using seeded randomness.
+Hard shots can break through or produce rebounds and push the keeper backward
+into the goal. Catches are distributed to an open teammate after half a second.
 Keepers wear yellow/purple kits and oversized gloves; player switching stays
-with the two outfield players. When a bot teammate receives possession, control
+with the outfield players. In Classic 1v1, when a bot teammate receives possession, control
 automatically follows the ball, preferring the human who passed. Another human's
 athlete is never taken over. LB / Space still switches manually off the ball.
 
@@ -56,6 +65,11 @@ athlete is never taken over. LB / Space still switches manually off the ball.
 
 `tools/register_gamenight.ps1` adds this local build without replacing other
 local games. Restart GameNight to refresh the local shelf.
+It registers separate **Goal Rush 1v1, 2v2 and 3v3 (Local)** entries, sharing the
+latest build. The game adapter supports six human seats; the current GameNight
+lobby exposes only four. Consequently, 3v3 can currently launch there with bots
+in the remaining places, but six humans require a host with six-seat support.
+Windows XInput also limits conventional XInput controllers to four.
 
 The game implements authenticated WebSocket lifecycle messages and authoritative
 host controller frames. Opaque device tokens retain ownership; stale input is
@@ -79,7 +93,7 @@ Simulation and input/lifecycle regression scripts run during the build.
 repeatable visual captures and frame statistics. Tests use fixed seeds.
 
 Static stadium geometry is combined by material; 400 spectators use one
-MultiMesh. A single orthographic camera keeps all four outfield athletes and both keepers visible. No
+MultiMesh. A single orthographic camera scales to keep the whole pitch visible. No
 downloaded art, third-party character assets, or heavyweight postprocessing.
 
 Shots have 33 ms of hit-stop and successful impacts 50 ms, capped rather than stacked.

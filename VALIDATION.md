@@ -50,3 +50,18 @@ The system audio backend reported an unavailable output format; automated
 renders used Godot's Dummy audio driver. Original WAV effects are included.
 No Android build, online play, remote publication or GameNight certification
 was performed. This is a locally registered, playable prototype.
+# Larger teams, control markers and keeper impacts
+
+- 1v1 retains fixed left/right unit pairs. 2v2/3v3 assign one unit per controller;
+  three/five humans leave exactly one AI outfield slot.
+- `tests/modes_keepers.gd` verifies roster sizes, team ownership, kickoff order,
+  independent movement, expanded goal boundaries and odd-party AI filling.
+- Seeded contact trials: 284/300 saves at speed 20, 192/300 at 38 and 117/300
+  at 55. Fast contact pushes the keeper back; misses have a recovery interval.
+- GameNight lifecycle tests cover six opaque controller tokens, one unit each,
+  neutral stale input, and a five-seat party with a bot. The packaged build's
+  real WebSocket test exercises the 3v3 game ID and six seats.
+- Visual captures reviewed at 1440x810 for 1v1 and 3v3: transparent antialiased
+  control markers, team arrows, full pitch visibility and unchanged goal size.
+- Current GameNight host lobby is still limited to four seats. Game-side six-seat
+  support is tested, but six physical controllers through that host are not supported.

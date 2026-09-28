@@ -67,7 +67,7 @@ func human_seats() -> Array:
 	var result: Array = []
 	for seat in seats:
 		if seat.get("occupant", {}).get("kind", "") == "local": result.append(seat)
-	return result.slice(0, 4)
+	return result.slice(0, 6)
 
 func read_seat(index: int) -> Dictionary:
 	var humans := human_seats()

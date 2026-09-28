@@ -3,6 +3,8 @@ const ORANGE = Color("ff7547")
 const BLUE = Color("58caff")
 const INK = Color("182d41")
 const CREAM = Color("fff2d2")
+var arena_nodes: Array = []
+var pitch_size := 1
 var mats: Dictionary = {}
 var crowd_mesh: MultiMeshInstance3D
 
@@ -114,8 +116,10 @@ func build() -> void:
 		box(self, Vector3(side * 16, .07, 0), Vector3(.10, .02, 11.5), white)
 		for z in [-5.75, 5.75]: box(self, Vector3(side * 18.4, .07, z), Vector3(4.9, .02, .11), white)
 		for z in [-8.1, 8.1]:
-			box(self, Vector3(side * 21.4, .55, z), Vector3(.65, 1.1, 8.7), color)
-			box(self, Vector3(side * 21.4, 1.14, z), Vector3(.78, .16, 8.7), CREAM)
+			var board := box(self, Vector3(side * 21.4, .55, z), Vector3(.65, 1.1, 8.7), color)
+			board.set_meta("end_board", true)
+			var trim := box(self, Vector3(side * 21.4, 1.14, z), Vector3(.78, .16, 8.7), CREAM)
+			trim.set_meta("end_board", true)
 		# Real net silhouette, recessed beyond the goal line.
 		for z in [-3.7, 3.7]:
 			rod(self, Vector3(side * 21.0, .05, z), Vector3(side * 21.0, 3.15, z), .15, CREAM)
@@ -148,7 +152,33 @@ func build() -> void:
 	for x in [-15, -5, 5, 15]:
 		label3(self, "PLAY LOUD" if abs(x) == 15 else "RUSH!", Vector3(x, .5, -12.1), 35, ORANGE if x < 0 else BLUE)
 	build_crowd()
+	# Tag the goal/net before batching so it can move without stretching.
+	for child in get_children():
+		if child is MeshInstance3D and absf(child.position.x) >= 20.9 and absf(child.position.x) <= 23.3 and absf(child.position.z) < 3.9:
+			child.set_meta("goal", true)
 	batch_static_geometry()
+	for child in get_children():
+		if child is GeometryInstance3D:
+			arena_nodes.append({"node": child, "transform": child.transform})
+
+func resize_pitch(teams: int) -> void:
+	pitch_size = teams
+	var factor := sqrt(float(teams))
+	for entry in arena_nodes:
+		var node: GeometryInstance3D = entry.node
+		node.transform = entry.transform
+		if node.get_meta("end_board", false):
+			node.position.x = signf(node.position.x) * (21.0 * factor + .4)
+			var outer := 12.45 * factor
+			node.position.z = signf(node.position.z) * (3.75 + outer) * .5
+			node.scale.z = (outer - 3.75) / 8.7
+		elif node.has_meta("goal_side"):
+			node.position.x += float(node.get_meta("goal_side")) * 21.0 * (factor - 1)
+		else:
+			node.position.x *= factor
+			node.position.z *= factor
+			node.scale.x *= factor
+			node.scale.z *= factor
 
 func batch_static_geometry() -> void:
 	# Merge immutable stadium pieces by material. The net and stands no longer
@@ -156,10 +186,11 @@ func batch_static_geometry() -> void:
 	var groups: Dictionary = {}
 	var sources: Array = []
 	for child in get_children():
-		if child is MeshInstance3D:
+		if child is MeshInstance3D and not child.get_meta("end_board", false):
 			var mat: Material = child.material_override
-			if not groups.has(mat): groups[mat] = []
-			groups[mat].append(child)
+			var key := str(mat.get_instance_id()) + ("goal_left" if child.position.x < 0 else "goal_right") if child.get_meta("goal", false) else str(mat.get_instance_id())
+			if not groups.has(key): groups[key] = []
+			groups[key].append(child)
 			sources.append(child)
 	for mat in groups:
 		var surface := SurfaceTool.new()
@@ -167,7 +198,8 @@ func batch_static_geometry() -> void:
 		for source in groups[mat]: surface.append_from(source.mesh, 0, source.transform)
 		var merged := MeshInstance3D.new()
 		merged.mesh = surface.commit()
-		merged.material_override = mat
+		merged.material_override = groups[mat][0].material_override
+		if "goal_" in mat: merged.set_meta("goal_side", -1 if "left" in mat else 1)
 		add_child(merged)
 	for source in sources:
 		remove_child(source)

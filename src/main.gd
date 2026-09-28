@@ -19,6 +19,7 @@ var menu := true
 var menu_selection := 0
 var paused := false
 var humans := 2
+var team_size := 1
 var coop := false
 var dual_stick := true
 var match_seconds := 120
@@ -57,12 +58,15 @@ func _ready() -> void:
 		elif arg.begins_with("--capture="): capture_path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--capture-at="): capture_at = float(arg.trim_prefix("--capture-at="))
 		elif arg.begins_with("--exit-at="): exit_at = float(arg.trim_prefix("--exit-at="))
+		elif arg.begins_with("--teams="):
+			team_size = clampi(int(arg.trim_prefix("--teams=")), 1, 3)
+			humans = team_size * 2
 		elif arg == "--stats": show_stats = true
 		elif arg == "--mute": sound_enabled = false
 		elif arg == "--fullscreen": DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	add_child(stadium)
 	stadium.build()
-	for i in 4:
+	for i in 12:
 		var athlete = stadium.make_player(i)
 		athlete.scale = Vector3.ONE * 1.16
 		athletes.append(athlete)
@@ -100,16 +104,23 @@ func _ready() -> void:
 		var player := AudioStreamPlayer.new()
 		add_child(player)
 		sound_players.append(player)
-	sim.setup(0, false, 725, 120, dual_stick)
+	sim.setup(0, false, 725, 120, dual_stick, team_size)
+	sync_arena()
 	if demo:
 		menu = false
-		sim.setup(0, false, 725, 120, dual_stick)
+		sim.setup(0, false, 725, 120, dual_stick, team_size)
 		sim.power = [100.0, 100.0]
 		camera.position = Vector3(0, 30, 31)
 		camera.look_at(Vector3(0, 0, -1))
 	if party.managed:
 		menu = false
 		paused = true
+
+func sync_arena() -> void:
+	stadium.resize_pitch(team_size)
+	for i in athletes.size():
+		athletes[i].visible = i < sim.players.size()
+		if i < sim.players.size(): athletes[i].position = Match.vec3(sim.players[i].pos)
 
 func start_match() -> void:
 	if party.managed:
@@ -120,9 +131,10 @@ func start_match() -> void:
 		devices.append(-1)
 		if not dual_stick: devices.append(-2)
 		humans = mini(humans, devices.size())
-	if dual_stick: humans = mini(humans, 2)
-	if coop: humans = mini(humans, 2)
-	sim.setup(0 if demo else humans, coop, int(Time.get_ticks_usec()) % 1000000, match_seconds, dual_stick)
+	if dual_stick: humans = mini(humans, team_size * 2)
+	if coop: humans = mini(humans, team_size * 2)
+	sim.setup(0 if demo else humans, coop, int(Time.get_ticks_usec()) % 1000000, match_seconds, dual_stick, team_size)
+	sync_arena()
 	apply_profiles()
 	menu = false
 	paused = false
@@ -141,7 +153,9 @@ func _physics_process(dt: float) -> void:
 	var controls: Dictionary = {}
 	if not menu and not demo:
 		for h in humans:
-			if dual_stick:
+			if team_size > 1:
+				controls[h] = read_single_control(h)
+			elif dual_stick:
 				for half in 2: controls[h * 2 + half] = read_dual_control(h, half)
 			else:
 				controls[h] = read_control(h)
@@ -153,7 +167,7 @@ func _physics_process(dt: float) -> void:
 		for event in sim.events: handle_event(event)
 	if sim.phase == "result":
 		result_time += dt
-		if menu: sim.setup(0, false, randi(), 120, dual_stick)
+		if menu: sim.setup(0, false, randi(), 120, dual_stick, team_size)
 		elif party.managed and result_time > 9: start_match()
 
 func read_control(h: int) -> Dictionary:
@@ -211,6 +225,17 @@ func read_control(h: int) -> Dictionary:
 			party.send({"type": "request_overlay"})
 	return {"move": move.limit_length(), "shoot": bool(buttons & 6), "pass": bool(pressed & 1), "tackle": bool(pressed & 6), "switch": bool(pressed & 16), "sprint": sprint or bool(buttons & 32)}
 
+func read_single_control(h: int) -> Dictionary:
+	# A single unit uses left-stick movement; either shoulder shoots/tackles.
+	var left := read_dual_control(h, 0)
+	var right := read_dual_control(h, 1)
+	var action: bool = left.shoot or right.shoot
+	var key := "single_%d" % h
+	left.tackle = action and not previous.get(key, false)
+	left.shoot = action
+	previous[key] = action
+	return left
+
 func read_dual_control(h: int, half: int) -> Dictionary:
 	var move := Vector2.ZERO
 	var action := false
@@ -252,9 +277,11 @@ func _process(dt: float) -> void:
 		if hit_stop <= 0:
 			update_visuals(dt)
 			update_effects(dt)
-	var target_x := -9.0 if menu else 0.0
+	var factor := sqrt(float(team_size))
+	camera.size = 33 * factor
+	var target_x := -9.0 * factor if menu else 0.0
 	var offset := Vector3(sin(run_time * 67) * shake * .12, 0, cos(run_time * 79) * shake * .1)
-	camera.position = camera.position.lerp(Vector3(target_x, 30, 31) + offset, 1 - exp(-dt * 5))
+	camera.position = camera.position.lerp(Vector3(target_x, 30 * factor, 31 * factor) + offset, 1 - exp(-dt * 5))
 	camera.look_at(Vector3(camera.position.x, 0, -1) + offset)
 	hud.queue_redraw()
 	if not capture_done and not capture_path.is_empty() and run_time >= capture_at:
@@ -288,6 +315,8 @@ func update_visuals(dt: float) -> void:
 		body.get_node("LegR").rotation.x = -body.get_node("LegL").rotation.x
 	for i in athletes.size():
 		var node: Node3D = athletes[i]
+		node.visible = i < sim.players.size()
+		if not node.visible: continue
 		var p: Dictionary = sim.players[i]
 		node.position = node.position.lerp(Vector3(p.pos.x, 0, p.pos.y), 1 - exp(-dt * 30))
 		var body: Node3D = node.get_node("Body")
@@ -341,6 +370,11 @@ func handle_event(event: Dictionary) -> void:
 			play_sound("hit")
 			notice = "SAVED!"
 			notice_time = .65
+		"keeper_beaten":
+			burst(event.pos, Stadium.CREAM, 7, 4)
+			shake = .35
+			play_sound("hit")
+			impact_pause(.035)
 		"keeper_dive": burst(event.pos, color, 5, 3)
 		"shot", "pass":
 			burst(event.pos, Stadium.CREAM, 6, 4)
@@ -467,17 +501,24 @@ func _input(event: InputEvent) -> void:
 	if paused and not party.managed and (key == KEY_TAB or button == JOY_BUTTON_Y):
 		menu = true
 		paused = false
-		sim.setup(0, false, randi(), 120, dual_stick)
+		sim.setup(0, false, randi(), 120, dual_stick, team_size)
 	if party.managed and key == KEY_F1: party.send({"type": "request_overlay"})
 
 func adjust_menu(delta: int) -> void:
 	match menu_selection:
-		1: humans = clampi(humans + delta, 1, mini(2 if dual_stick else 4, Input.get_connected_joypads().size() + (1 if dual_stick else 2)))
+		1:
+			var choice := 0 if humans == 1 else team_size
+			choice = posmod(choice + delta, 4)
+			team_size = maxi(1, choice)
+			humans = 1 if choice == 0 else team_size * 2
+			sim.setup(0, false, 725, 120, dual_stick, team_size)
+			sync_arena()
 		2:
+			if team_size > 1: return
 			dual_stick = not dual_stick
 			coop = false
-			if dual_stick: humans = mini(humans, 2)
-			sim.setup(0, false, 725, 120, dual_stick)
+			if dual_stick: humans = mini(humans, team_size * 2)
+			sim.setup(0, false, 725, 120, dual_stick, team_size)
 		3: match_seconds = clampi(match_seconds + delta * 60, 60, 300)
 		4: sound_enabled = not sound_enabled
 
@@ -487,10 +528,11 @@ func on_party_command(message: Dictionary) -> void:
 			host_active = false
 			menu = false
 			paused = true
-			humans = mini(party.human_seats().size(), 2 if dual_stick else 4)
+			humans = mini(party.human_seats().size(), team_size * 2 if dual_stick else team_size * 4)
 			coop = false
 			managed_buttons.clear()
-			sim.setup(humans, false, 725, match_seconds, dual_stick)
+			sim.setup(humans, false, 725, match_seconds, dual_stick, team_size)
+			sync_arena()
 			apply_profiles()
 			party.send({"type": "participation", "session": party.session, "instant_join": false})
 			# Wait until the renderer has prepared the arena before Ready.
@@ -549,7 +591,7 @@ func apply_profiles() -> void:
 		p.erase("profile")
 		athletes[i].get_node("Body/Head").material_override = stadium.material(Stadium.CREAM)
 		athletes[i].get_node("Body/Headband").material_override = stadium.material(Stadium.ORANGE if p.team == 0 else Stadium.BLUE)
-		var person: int = p.human / 2 if dual_stick else p.human
+		var person: int = p.human / 2 if sim.dual_control else p.human
 		if p.human < 0 or person >= seats.size(): continue
 		var id: String = str(seats[person].get("occupant", {}).get("player_id", ""))
 		var profile: Dictionary = party.profiles.get(id, {})

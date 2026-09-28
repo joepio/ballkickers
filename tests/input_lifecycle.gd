@@ -70,6 +70,26 @@ func run() -> void:
 	game._physics_process(.025)
 	game._physics_process(.025)
 	check(game.sim.clock < match_time, "simulation resumes immediately after hit-stop expires")
+	# Larger modes give each seat one unit, including six-seat hosts.
+	game.team_size = 3
+	seats.clear()
+	var frames := []
+	for seat in 6:
+		seats.append({"index": seat, "controller": "six:%d" % seat, "occupant": {"kind": "local", "player_id": "seat%d" % seat}})
+		frames.append({"controller": "six:%d" % seat, "axes": [32767,0,-32767,0,0,0], "buttons": 48})
+	game.party.handle({"type": "prepare", "session": "six", "players": [], "seats": seats})
+	game.party.handle({"type": "start", "session": "six"})
+	game.party.handle({"type": "controller_frame", "controllers": frames})
+	check(game.humans == 6 and game.sim.players.size() == 6, "six GameNight seats create six outfield units")
+	for seat in 6:
+		var control: Dictionary = game.read_single_control(seat)
+		check(control.move.x > .9 and control.shoot, "seat %d uses left stick and shoulders for one unit" % seat)
+	game.party.frame_time -= 300
+	check(game.read_single_control(5).move == Vector2.ZERO, "sixth seat neutralizes stale input")
+	seats.pop_back()
+	game.party.handle({"type": "prepare", "session": "five", "players": [], "seats": seats})
+	game.party.handle({"type": "start", "session": "five"})
+	check(game.humans == 5 and game.sim.players.size() == 6 and game.sim.players[5].human == -1, "five-player GameNight party gets one bot")
 	game.free()
 	print("INPUT_LIFECYCLE_RESULT ", failures, " failures")
 	quit(1 if failures else 0)
