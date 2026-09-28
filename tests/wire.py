@@ -56,6 +56,7 @@ with socket.socket() as server:
     server.settimeout(12)
     env = dict(os.environ, GAMENIGHT="1", GAMENIGHT_ADDR=f"127.0.0.1:{server.getsockname()[1]}", GAMENIGHT_GAME_ID=GAME_ID, GAMENIGHT_TOKEN="local-test-token")
     log_path = ROOT / "captures" / "wire.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
     log = log_path.open("w", encoding="utf-8")
     project_args = [] if Path(GODOT).stem == "Ballkickers" else ["--path",str(ROOT)]
     process = subprocess.Popen([GODOT.replace("_console.exe", ".exe"),"--headless","--audio-driver","Dummy",*project_args,"--","--mute",f"--teams={TEAMS}"], env=env, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, text=True)
