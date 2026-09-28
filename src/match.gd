@@ -7,10 +7,15 @@ const GOAL_HEIGHT = 3.1
 const RADIUS = 0.65
 var rng := RandomNumberGenerator.new()
 var players: Array = []
+var keepers: Array = []
+var keeper_owner := -1
+var dual_control := false
 var ball := Vector3(0, 0.45, 0)
 var ball_velocity := Vector3.ZERO
 var owner := -1
 var last_touch := -1
+var ball_controller := -1
+var ball_controller_team := -1
 var pickup_lock := 0.0
 var score := [0, 0]
 var power := [20.0, 20.0]
@@ -23,9 +28,14 @@ var overtime := false
 var events: Array = []
 var stats := {"shots": 0, "passes": 0, "tackles": 0, "goals": 0, "supers": 0}
 
-func setup(humans: int = 1, coop: bool = false, seed_value: int = 42, seconds: float = 120) -> void:
+func setup(humans: int = 1, coop: bool = false, seed_value: int = 42, seconds: float = 120, dual: bool = false) -> void:
 	rng.seed = seed_value
+	dual_control = dual
 	players.clear()
+	keepers.clear()
+	for team in 2:
+		keepers.append({"team": team, "pos": Vector2(-19.4 if team == 0 else 19.4, 0),
+			"vel": 0.0, "dive": 0.0, "dive_dir": 1.0, "recovery": 0.0, "reaction": 0.0, "hold": 0.0, "kick": 0.0})
 	score = [0, 0]
 	power = [20.0, 20.0]
 	duration = seconds
@@ -33,17 +43,21 @@ func setup(humans: int = 1, coop: bool = false, seed_value: int = 42, seconds: f
 	elapsed = 0.0
 	overtime = false
 	stats = {"shots": 0, "passes": 0, "tackles": 0, "goals": 0, "supers": 0}
-	for i in 6:
+	stats["saves"] = 0
+	for i in 4:
 		var team: int = i % 2
 		var role: int = i / 2
 		var human := -1
-		if coop:
-			if team == 0 and role < mini(humans, 3): human = role
+		if dual_control:
+			if team < mini(humans, 2): human = team * 2 + role
+		elif coop:
+			if team == 0 and role < mini(humans, 2): human = role
 		else:
 			if i < humans: human = i
 		players.append({"team": team, "role": role, "human": human, "pos": Vector2.ZERO,
 			"vel": Vector2.ZERO, "face": Vector2(1 if team == 0 else -1, 0), "stamina": 1.0,
 			"charge": 0.0, "cooldown": 0.0, "stun": 0.0, "dash": 0.0, "kick": 0.0,
+			"dash_shot": false,
 			"think": rng.randf_range(0, 0.3), "intent": Vector2.ZERO, "shoot_at": rng.randf_range(.3, .9),
 			"nerve": rng.randf_range(.7, 1.2), "drift": rng.randf_range(-2.5, 2.5), "held": false,
 			"name": "P%d" % (human + 1) if human >= 0 else ["BOLT", "MISO", "ZIG", "POPPY", "BUBS", "NOVA"][i]})
@@ -51,10 +65,14 @@ func setup(humans: int = 1, coop: bool = false, seed_value: int = 42, seconds: f
 	events.clear()
 
 func kickoff(team: int) -> void:
+	keeper_owner = -1
+	for k in keepers:
+		k.pos = Vector2(-19.4 if k.team == 0 else 19.4, 0)
+		for field in ["vel", "dive", "recovery", "reaction", "hold", "kick"]: k[field] = 0.0
 	for i in players.size():
 		var p: Dictionary = players[i]
 		var direction: float = 1 if p.team == 0 else -1
-		p.pos = Vector2(-direction * (5.5 if p.role == 0 else 12.0), 0 if p.role == 0 else (-6.0 if p.role == 1 else 6.0))
+		p.pos = Vector2(-direction * (5.5 if p.role == 0 else 12.0), 0 if p.role == 0 else 4.5)
 		p.vel = Vector2.ZERO
 		p.face = Vector2(direction, 0)
 		p.stun = 0.0
@@ -62,10 +80,13 @@ func kickoff(team: int) -> void:
 		p.held = false
 		p.cooldown = 0.0
 		p.dash = 0.0
+		p.dash_shot = false
 	ball = Vector3(0, .45, 0)
 	ball_velocity = Vector3.ZERO
 	owner = -1
 	last_touch = -1
+	ball_controller = -1
+	ball_controller_team = -1
 	pickup_lock = 0.0
 	if team >= 0:
 		players[team].pos = Vector2(-1.0 if team == 0 else 1.0, 0)
@@ -94,8 +115,13 @@ func step(dt: float, inputs: Dictionary = {}) -> void:
 	for i in players.size():
 		var p: Dictionary = players[i]
 		var control: Dictionary = inputs.get(p.human, {}) if p.human >= 0 else ai_input(i, dt)
+		if dual_control:
+			control = control.duplicate()
+			control["pass"] = false
+			control["sprint"] = false
 		move_player(i, control, dt)
 	resolve_bodies()
+	update_keepers(dt)
 	move_ball(dt)
 	if clock <= 0 and phase == "play":
 		if score[0] == score[1]:
@@ -108,6 +134,7 @@ func move_player(i: int, input: Dictionary, dt: float) -> void:
 	p.cooldown = maxf(0, p.cooldown - dt)
 	p.stun = maxf(0, p.stun - dt)
 	p.dash = maxf(0, p.dash - dt)
+	if p.dash <= 0 or p.stun > 0: p.dash_shot = false
 	p.kick = maxf(0, p.kick - dt)
 	var move: Vector2 = input.get("move", Vector2.ZERO)
 	move = move.limit_length()
@@ -125,8 +152,10 @@ func move_player(i: int, input: Dictionary, dt: float) -> void:
 		if p.dash > 0:
 			p.vel = p.face * 22.0
 		else: p.vel = p.vel.move_toward(move * speed, dt * (64.0 if move.length() > .1 else 48.0))
-		if input.get("tackle", false) and p.cooldown <= 0 and p.stamina > .2:
+		if input.get("tackle", false) and owner != i and p.cooldown <= 0 and p.stamina > .2:
 			p.dash = .21
+			p.dash_shot = true
+			p.vel = p.face * 22.0
 			p.cooldown = .9
 			p.stamina -= .2
 			events.append({"type": "dash", "pos": vec3(p.pos), "team": p.team})
@@ -177,12 +206,15 @@ func resolve_bodies() -> void:
 
 func shoot_ball(i: int) -> void:
 	var p: Dictionary = players[i]
+	ball_controller = p.human
+	ball_controller_team = p.team
 	var charge: float = p.charge
 	var direction := Vector2(1 if p.team == 0 else -1, 0)
 	# Face-to-goal assistance only in the forward cone. Aim still selects a corner.
 	var goal := Vector2(direction.x * (HALF_X + 1), clampf(p.face.y * 4.8, -3.0, 3.0))
 	var toward: Vector2 = (goal - p.pos).normalized()
-	if p.face.dot(direction) > .1: direction = toward
+	if dual_control: direction = p.face
+	elif p.face.dot(direction) > .1: direction = toward
 	else: direction = p.face
 	var super_shot: bool = charge >= .85 and power[p.team] >= 99
 	if super_shot:
@@ -201,6 +233,8 @@ func shoot_ball(i: int) -> void:
 
 func pass_ball(i: int, aim: Vector2) -> void:
 	var p: Dictionary = players[i]
+	ball_controller = p.human
+	ball_controller_team = p.team
 	var target := -1
 	var best := -INF
 	if aim.length() < .2: aim = p.face
@@ -225,10 +259,16 @@ func pass_ball(i: int, aim: Vector2) -> void:
 	events.append({"type": "pass", "pos": ball, "team": p.team})
 
 func move_ball(dt: float) -> void:
+	if keeper_owner >= 0:
+		var k: Dictionary = keepers[keeper_owner]
+		ball = vec3(k.pos + Vector2(1 if k.team == 0 else -1, 0) * .65, 1.15)
+		ball_velocity = Vector3.ZERO
+		return
 	if owner >= 0:
 		var p: Dictionary = players[owner]
 		ball = vec3(p.pos + p.face * 1.0, .45 + absf(sin(elapsed * 16)) * minf(.15, p.vel.length() * .01))
 		ball_velocity = vec3(p.vel)
+		keeper_save(ball, ball)
 		return
 	var before := ball
 	ball_velocity.y -= 20 * dt
@@ -243,6 +283,7 @@ func move_ball(dt: float) -> void:
 		ball.z = signf(ball.z) * (HALF_Z - .43)
 		ball_velocity.z *= -.82
 		events.append({"type": "bounce", "pos": ball})
+	if keeper_save(before, ball): return
 	if absf(ball.x) > HALF_X:
 		# Interpolate the line crossing, so fast shots cannot skip the goal mouth.
 		var crossing := before.lerp(ball, clampf((signf(ball.x) * HALF_X - before.x) / (ball.x - before.x) if absf(ball.x - before.x) > .001 else 1.0, 0, 1))
@@ -268,11 +309,19 @@ func move_ball(dt: float) -> void:
 			owner = i
 			last_touch = i
 			p.charge = 0.0
+			auto_control_receiver(i)
+			if p.dash > 0 and p.dash_shot:
+				p.charge = .35
+				p.dash = 0.0
+				p.dash_shot = false
+				shoot_ball(i)
+				return
 			events.append({"type": "receive", "pos": ball, "team": p.team})
 			return
 
 var events_team := 0
 func goal_scored(team: int) -> void:
+	keeper_owner = -1
 	score[team] += 1
 	stats.goals += 1
 	phase = "goal"
@@ -305,6 +354,26 @@ func switch_player(human: int) -> void:
 		players[current].human = -1
 		players[current].held = false
 		players[current].charge = 0.0
+
+func auto_control_receiver(receiver: int) -> void:
+	if dual_control: return
+	var receiving: Dictionary = players[receiver]
+	if receiving.human >= 0: return
+	var source := -1
+	var best := INF
+	for i in players.size():
+		var p: Dictionary = players[i]
+		if p.human < 0 or p.team != receiving.team: continue
+		var distance: float = p.pos.distance_to(receiving.pos)
+		if p.human == ball_controller and p.team == ball_controller_team: distance = -1
+		if distance < best: best = distance; source = i
+	if source < 0: return
+	receiving.human = players[source].human
+	receiving.held = false
+	players[source].human = -1
+	players[source].held = false
+	players[source].charge = 0.0
+	events.append({"type": "control_changed", "pos": ball, "team": receiving.team})
 
 func ai_input(i: int, dt: float) -> Dictionary:
 	var p: Dictionary = players[i]
@@ -351,3 +420,99 @@ func ai_input(i: int, dt: float) -> Dictionary:
 
 static func vec3(v: Vector2, height: float = 0) -> Vector3:
 	return Vector3(v.x, height, v.y)
+
+func update_keepers(dt: float) -> void:
+	for k in keepers:
+		k.recovery = maxf(0, k.recovery - dt)
+		k.kick = maxf(0, k.kick - dt)
+		if keeper_owner == k.team:
+			k.hold -= dt
+			if k.hold <= 0: distribute(k)
+			continue
+		var inward := 1.0 if k.team == 0 else -1.0
+		var target := clampf(ball.z * .55, -2.65, 2.65)
+		var approaching: bool = owner < 0 and keeper_owner < 0 and ball_velocity.x * inward < -8
+		var eta: float = (k.pos.x - ball.x) / ball_velocity.x if approaching else 10.0
+		var threat: bool = approaching and eta > 0 and eta < .65
+		if threat:
+			k.reaction += dt
+			target = clampf(ball.z + ball_velocity.z * eta, -3.25, 3.25)
+		else: k.reaction = 0.0
+		if k.dive > 0:
+			k.dive = maxf(0, k.dive - dt)
+			k.pos.y += k.vel * dt
+		elif k.recovery <= 0:
+			if threat and k.reaction > .14 and eta < .36 and absf(target - k.pos.y) > .65:
+				k.dive = .28
+				k.recovery = .85
+				k.dive_dir = signf(target - k.pos.y)
+				k.vel = k.dive_dir * 12.0
+				events.append({"type": "keeper_dive", "pos": vec3(k.pos, .7), "team": k.team})
+			else:
+				k.vel = clampf((target - k.pos.y) * 6, -4.5, 4.5)
+				k.pos.y += k.vel * dt
+		else: k.vel = 0.0
+		k.pos.y = clampf(k.pos.y, -3.25, 3.25)
+
+func keeper_save(before: Vector3, after: Vector3) -> bool:
+	# Swept test, before scoring: fast balls cannot tunnel through the gloves.
+	var segment := after - before
+	for k in keepers:
+		if k.recovery > 0 and k.dive <= 0: continue
+		var center := vec3(k.pos, 1.0)
+		var t := clampf((center - before).dot(segment) / segment.length_squared(), 0, 1) if segment.length_squared() > .00001 else 0.0
+		var contact := before + segment * t
+		var reach := 1.45 if k.dive > 0 else 1.03
+		if Vector2(contact.x - center.x, contact.z - center.z).length() > reach or contact.y > 2.15: continue
+		# Do not recatch our own distribution or touch a ball moving out of goal.
+		var inward := 1.0 if k.team == 0 else -1.0
+		if owner < 0 and ball_velocity.x * inward > 2: continue
+		if owner >= 0:
+			players[owner].charge = 0.0
+			players[owner].held = false
+		owner = -1
+		stats.saves += 1
+		power[k.team] = minf(100, power[k.team] + 5)
+		ball = contact
+		var speed := ball_velocity.length()
+		if speed < 29 and k.dive <= 0:
+			keeper_owner = k.team
+			k.hold = .5
+			ball_velocity = Vector3.ZERO
+		else:
+			# Powerful shots spill into dangerous rebounds; a second shot can beat
+			# the keeper while they recover. No random coin-flip invulnerability.
+			var side := signf(contact.z - k.pos.y)
+			if side == 0: side = k.dive_dir
+			ball_velocity = Vector3(inward * maxf(9, speed * .42), 4.5, side * 10)
+			ball.x = k.pos.x + inward * 1.5
+			k.recovery = .9 if speed > 44 else .65
+			k.dive = minf(k.dive, .12)
+		pickup_lock = .16
+		events.append({"type": "save", "pos": ball, "team": k.team})
+		return true
+	return false
+
+func distribute(k: Dictionary) -> void:
+	var inward := 1.0 if k.team == 0 else -1.0
+	var target := -1
+	var best := -INF
+	for i in players.size():
+		var p: Dictionary = players[i]
+		if p.team != k.team or p.stun > 0: continue
+		var space := 12.0
+		for q in players:
+			if q.team != k.team: space = minf(space, q.pos.distance_to(p.pos))
+		var rating: float = space - p.pos.distance_to(k.pos) * .15
+		if rating > best: best = rating; target = i
+	var destination: Vector2 = players[target].pos + players[target].vel * .2 if target >= 0 else Vector2.ZERO
+	var direction: Vector2 = (destination - k.pos).normalized()
+	if direction.x * inward < .2: direction = Vector2(inward, direction.y).normalized()
+	keeper_owner = -1
+	last_touch = target
+	ball = vec3(k.pos + direction * 1.6, .6)
+	ball_velocity = vec3(direction * 25, 1.6)
+	pickup_lock = .18
+	k.recovery = .35
+	k.kick = .3
+	events.append({"type": "pass", "pos": ball, "team": k.team})

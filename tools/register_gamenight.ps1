@@ -10,8 +10,8 @@ if (Test-Path -LiteralPath $goalLocalFile) {
     $goalEntries = @(Get-Content -LiteralPath $goalLocalFile -Raw | ConvertFrom-Json | Where-Object { $_.id -ne 'goal-rush' })
 }
 $goalEntries += [ordered]@{
-    id='goal-rush'; title='Goal Rush (Local)'; tagline='3v3 party football. Small pitch. Big trouble.'
-    color='#ff7547'; emoji='⚽'; players='1-4 players'; min_players=1; max_players=4; best_players=4
+    id='goal-rush'; title='Goal Rush (Local)'; tagline='2v2 football: one controller, two players. With diving keepers.'
+    color='#ff7547'; emoji='⚽'; players='1-2 players'; min_players=1; max_players=2; best_players=2
     screenshot=(Join-Path $goalRoot 'assets/gameplay.png')
     cover=(Join-Path $goalRoot 'assets/gameplay.png')
     icon=(Join-Path $goalRoot 'assets/icon.png')

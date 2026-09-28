@@ -1,6 +1,6 @@
 # Goal Rush
 
-A playful, fast 3v3 party football prototype for Godot 4.5.2. Original procedural
+A playful, fast 2v2 party football prototype for Godot 4.5.2. Original procedural
 stadium, marshmallow athletes, synthesised Foley and arcade ball physics.
 
 ## Play
@@ -8,33 +8,46 @@ stadium, marshmallow athletes, synthesised Foley and arcade ball physics.
 Open `build/GoalRush.exe`. It is a standalone Windows build; no Godot install is
 needed. Keep `GoalRush.pck` beside it. Alternatively open `project.godot` in Godot.
 
-Pick 1–4 local players (subject to available devices). Bots fill both teams to
-three. Versus alternates humans between teams; Co-op puts up to three humans on
-Ember. Two players can share a keyboard. Controllers are assigned first, then
-keyboard layouts, and never silently reassigned when disconnected.
+The default **Dual** experiment gives each person a whole team: two outfield
+players, plus an automatic goalkeeper. One or two people play, one controller
+per team. With one person, the other team uses the existing AI.
 
-| Action | Controller | Keyboard 1 | Keyboard 2 |
+| Half | Move and aim | Shoot / tackle | Keyboard fallback |
 |---|---|---|---|
-| Move / aim | Left stick / D-pad | WASD | Arrows |
-| Shoot; hold to charge, release to kick | X | J | Numpad 1 |
-| Pass toward a teammate | A | K | Numpad 2 |
-| Tackle / dash | B | L | Numpad 3 |
-| Sprint | RT / RB | Shift | Ctrl |
-| Switch to teammate near ball | LB | Space | Numpad 0 |
-| Pause / resume | Start | Escape / Enter | Escape |
-| Menu during pause | Y | Tab | Tab |
-| Fullscreen | — | F11 | F11 |
+| Left player (L) | Left stick | LB | WASD + Q |
+| Right player (R) | Right stick | RB | Arrows + Ctrl |
+
+Hold a shoulder button with the ball to charge, release to shoot. Without the
+ball, press it to dash/tackle. Contact with a loose ball during the dash kicks
+it immediately. White (left) and yellow (right) ground arrows show aim and
+extend as shots charge. There is no hidden goal-aim assist in Dual mode.
+Passing, sprinting and automatic switching are disabled for this experiment.
+The two units keep their left/right assignments throughout the match.
+
+Start / Escape pauses. Y / Tab returns to the menu while paused. F11 toggles
+fullscreen. **Controls → Classic** retains the earlier experiment and AI code:
+1–4 people, X / J shoots with the ball or tackles without, A / K passes,
+RT / Shift sprints, LB / Space switches, and control follows a bot receiving
+possession. A second keyboard uses arrows, numpad 1/2, Ctrl and numpad 0.
 
 Menu: stick or D-pad up/down selects a row, left/right changes it; A or Start
 starts. Clicks also work. F3 shows performance. F12 saves a screenshot to the
 source `captures` folder when running from source.
 
-Receiving the ball gives close dribbling control; tap passes and shots keep play moving.
+Receiving the ball gives close dribbling control; quick shots keep play moving.
 There are no fouls or throw-ins. Rebound walls keep the ball live. Sprint and
 tackles spend stamina. Passing, tackling and time fill a team power meter;
 holding a shot for at least 0.85 seconds with a full meter releases a powerful
 shot that knocks opponents aside. Matches last 1–5 minutes; ties enter golden
 goal. Start/Enter instantly rematches after the result.
+
+Keepers track the ball, commit to diving saves and catch slower shots. Hard shots
+produce rebounds and leave them recovering, so corners and follow-up shots can
+beat them. Catches are distributed to an open teammate after half a second.
+Keepers wear yellow/purple kits and oversized gloves; player switching stays
+with the two outfield players. When a bot teammate receives possession, control
+automatically follows the ball, preferring the human who passed. Another human's
+athlete is never taken over. LB / Space still switches manually off the ball.
 
 ## GameNight
 
@@ -63,8 +76,10 @@ Simulation and input/lifecycle regression scripts run during the build.
 repeatable visual captures and frame statistics. Tests use fixed seeds.
 
 Static stadium geometry is combined by material; 400 spectators use one
-MultiMesh. A single orthographic camera keeps all six athletes visible. No
+MultiMesh. A single orthographic camera keeps all four outfield athletes and both keepers visible. No
 downloaded art, third-party character assets, or heavyweight postprocessing.
+
+Shots have 33 ms of hit-stop and successful impacts 50 ms, capped rather than stacked.
 
 This is a first playable prototype, not a certified GameNight release.
 Physical multi-controller testing and match balance still benefit from playtests.

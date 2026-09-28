@@ -204,11 +204,12 @@ func build_crowd() -> void:
 	crowd_mesh.multimesh = multi
 	add_child(crowd_mesh)
 
-func make_player(index: int) -> Node3D:
+func make_player(index: int, keeper: bool = false) -> Node3D:
 	var root := Node3D.new()
 	root.name = "Athlete%d" % index
 	add_child(root)
 	var color: Color = ORANGE if index % 2 == 0 else BLUE
+	if keeper: color = Color("ffcf4d") if index % 2 == 0 else Color("c38aff")
 	var body := Node3D.new()
 	body.name = "Body"
 	root.add_child(body)
@@ -226,7 +227,7 @@ func make_player(index: int) -> Node3D:
 		leg.name = "LegL" if side == -1 else "LegR"
 		leg.position = Vector3(side * .24, .48, 0)
 		body.add_child(leg)
-		capsule(leg, Vector3(0, -.16, 0), .16, .42, CREAM)
+		capsule(leg, Vector3(0, -.16, 0), .16, .42, INK if keeper else CREAM)
 		var boot := capsule(leg, Vector3(0, -.36, .10), .21, .55, color.darkened(.25))
 		boot.rotation.x = PI / 2
 		var arm := Node3D.new()
@@ -234,8 +235,8 @@ func make_player(index: int) -> Node3D:
 		arm.position = Vector3(side * .47, 1.22, 0)
 		body.add_child(arm)
 		capsule(arm, Vector3(side * .04, -.17, 0), .16, .46, color)
-		sphere(arm, Vector3(side * .09, -.37, 0), .21, CREAM)
-	var badge := label3(body, str(index / 2 + 1), Vector3(0, 1.04, -.435), 32, CREAM)
+		sphere(arm, Vector3(side * .09, -.37, 0), .30 if keeper else .21, CREAM)
+	var badge := label3(body, "GK" if keeper else str(index / 2 + 1), Vector3(0, 1.04, -.435), 32, CREAM)
 	badge.rotation.y = PI
 	var marker := ring(root, Vector3(0, .11, 0), .83, .085, color)
 	marker.name = "Marker"

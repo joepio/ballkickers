@@ -9,6 +9,7 @@ var hud = Hud.new()
 var party = Party.new()
 var camera := Camera3D.new()
 var athletes: Array = []
+var keeper_nodes: Array = []
 var ball_node: Node3D
 var ball_shadow: MeshInstance3D
 var effects: Array = []
@@ -19,6 +20,7 @@ var menu_selection := 0
 var paused := false
 var humans := 1
 var coop := false
+var dual_stick := true
 var match_seconds := 120
 var sound_enabled := true
 var devices: Array = []
@@ -31,6 +33,7 @@ var run_time := 0.0
 var trail_clock := 0.0
 var super_time := 0.0
 var result_time := 0.0
+var hit_stop := 0.0
 var demo := false
 var capture_path := ""
 var capture_at := 4.0
@@ -59,10 +62,15 @@ func _ready() -> void:
 		elif arg == "--fullscreen": DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	add_child(stadium)
 	stadium.build()
-	for i in 6:
+	for i in 4:
 		var athlete = stadium.make_player(i)
 		athlete.scale = Vector3.ONE * 1.16
 		athletes.append(athlete)
+	for team in 2:
+		var keeper = stadium.make_player(6 + team, true)
+		keeper.scale = Vector3.ONE * 1.23
+		keeper.get_node("Marker").visible = false
+		keeper_nodes.append(keeper)
 	ball_node = stadium.make_ball()
 	ball_shadow = stadium.sphere(stadium, Vector3.ZERO, .46, Color("285e50"))
 	ball_shadow.scale.y = .015
@@ -92,10 +100,10 @@ func _ready() -> void:
 		var player := AudioStreamPlayer.new()
 		add_child(player)
 		sound_players.append(player)
-	sim.setup(0, false, 725)
+	sim.setup(0, false, 725, 120, dual_stick)
 	if demo:
 		menu = false
-		sim.setup(0, false, 725)
+		sim.setup(0, false, 725, 120, dual_stick)
 		sim.power = [100.0, 100.0]
 		camera.position = Vector3(0, 30, 31)
 		camera.look_at(Vector3(0, 0, -1))
@@ -110,34 +118,42 @@ func start_match() -> void:
 		devices.clear()
 		for id in Input.get_connected_joypads(): devices.append(id)
 		devices.append(-1)
-		devices.append(-2)
+		if not dual_stick: devices.append(-2)
 		humans = mini(humans, devices.size())
-	if coop: humans = mini(humans, 3)
-	sim.setup(0 if demo else humans, coop, int(Time.get_ticks_usec()) % 1000000, match_seconds)
+	if dual_stick: humans = mini(humans, 2)
+	if coop: humans = mini(humans, 2)
+	sim.setup(0 if demo else humans, coop, int(Time.get_ticks_usec()) % 1000000, match_seconds, dual_stick)
 	apply_profiles()
 	menu = false
 	paused = false
 	previous.clear()
 	result_time = 0
+	hit_stop = 0.0
 	clear_effects()
 	play_sound("whistle")
 
 func _physics_process(dt: float) -> void:
 	if party.managed and not host_active: return
 	if paused: return
+	if hit_stop > 0:
+		hit_stop = maxf(0, hit_stop - dt)
+		return
 	var controls: Dictionary = {}
 	if not menu and not demo:
 		for h in humans:
-			controls[h] = read_control(h)
-			if controls[h].get("switch", false):
-				sim.switch_player(h)
-				apply_profiles()
+			if dual_stick:
+				for half in 2: controls[h * 2 + half] = read_dual_control(h, half)
+			else:
+				controls[h] = read_control(h)
+				if controls[h].get("switch", false):
+					sim.switch_player(h)
+					apply_profiles()
 	sim.step(dt, controls)
 	if not menu:
 		for event in sim.events: handle_event(event)
 	if sim.phase == "result":
 		result_time += dt
-		if menu: sim.setup(0, false, randi(), 120)
+		if menu: sim.setup(0, false, randi(), 120, dual_stick)
 		elif party.managed and result_time > 9: start_match()
 
 func read_control(h: int) -> Dictionary:
@@ -193,7 +209,38 @@ func read_control(h: int) -> Dictionary:
 		if pressed & (1 << 6) and overlay_ready:
 			overlay_ready = false
 			party.send({"type": "request_overlay"})
-	return {"move": move.limit_length(), "shoot": bool(buttons & 4), "pass": bool(pressed & 1), "tackle": bool(pressed & 2), "switch": bool(pressed & 16), "sprint": sprint or bool(buttons & 32)}
+	return {"move": move.limit_length(), "shoot": bool(buttons & 6), "pass": bool(pressed & 1), "tackle": bool(pressed & 6), "switch": bool(pressed & 16), "sprint": sprint or bool(buttons & 32)}
+
+func read_dual_control(h: int, half: int) -> Dictionary:
+	var move := Vector2.ZERO
+	var action := false
+	if party.managed:
+		var record: Dictionary = party.read_seat(h)
+		var axes: Array = record.get("axes", [])
+		var axis: int = half * 2
+		if axes.size() > axis + 1: move = Vector2(float(axes[axis]), float(axes[axis + 1])) / 32767.0
+		action = bool(int(record.get("buttons", 0)) & (1 << (4 + half)))
+	else:
+		var device: int = devices[h] if h < devices.size() else -99
+		if device >= 0 and Input.get_connected_joypads().has(device):
+			move = Vector2(Input.get_joy_axis(device, JOY_AXIS_LEFT_X if half == 0 else JOY_AXIS_RIGHT_X), Input.get_joy_axis(device, JOY_AXIS_LEFT_Y if half == 0 else JOY_AXIS_RIGHT_Y))
+			action = Input.is_joy_button_pressed(device, JOY_BUTTON_LEFT_SHOULDER if half == 0 else JOY_BUTTON_RIGHT_SHOULDER)
+		elif device == -1:
+			if half == 0:
+				move = Vector2(int(Input.is_physical_key_pressed(KEY_D)) - int(Input.is_physical_key_pressed(KEY_A)), int(Input.is_physical_key_pressed(KEY_S)) - int(Input.is_physical_key_pressed(KEY_W)))
+				action = Input.is_physical_key_pressed(KEY_Q)
+			else:
+				move = Vector2(int(Input.is_physical_key_pressed(KEY_RIGHT)) - int(Input.is_physical_key_pressed(KEY_LEFT)), int(Input.is_physical_key_pressed(KEY_DOWN)) - int(Input.is_physical_key_pressed(KEY_UP)))
+				action = Input.is_physical_key_pressed(KEY_CTRL)
+	if move.length() < .18: move = Vector2.ZERO
+	else: move = move.normalized() * minf(1, (move.length() - .18) / .82)
+	var key := "dual_%d_%d" % [h, half]
+	var pressed: bool = action and not previous.get(key, false)
+	previous[key] = action
+	if party.managed and (action or move.length() > .1) and Time.get_ticks_msec() - last_activity > 500:
+		last_activity = Time.get_ticks_msec()
+		party.send({"type": "controller_input", "session": party.session, "controller": party.human_seats()[h].get("controller", "")})
+	return {"move": move.limit_length(), "shoot": action, "tackle": pressed, "pass": false, "sprint": false, "switch": false}
 
 func _process(dt: float) -> void:
 	run_time += dt
@@ -202,8 +249,9 @@ func _process(dt: float) -> void:
 		notice_time = maxf(0, notice_time - dt)
 		super_time = maxf(0, super_time - dt)
 		shake = move_toward(shake, 0, dt * 2)
-		update_visuals(dt)
-		update_effects(dt)
+		if hit_stop <= 0:
+			update_visuals(dt)
+			update_effects(dt)
 	var target_x := -9.0 if menu else 0.0
 	var offset := Vector3(sin(run_time * 67) * shake * .12, 0, cos(run_time * 79) * shake * .1)
 	camera.position = camera.position.lerp(Vector3(target_x, 30, 31) + offset, 1 - exp(-dt * 5))
@@ -221,6 +269,23 @@ func _process(dt: float) -> void:
 		get_tree().quit()
 
 func update_visuals(dt: float) -> void:
+	for team in keeper_nodes.size():
+		var node: Node3D = keeper_nodes[team]
+		var k: Dictionary = sim.keepers[team]
+		node.position = node.position.lerp(Vector3(k.pos.x, 0, k.pos.y), 1 - exp(-dt * 34))
+		var body: Node3D = node.get_node("Body")
+		var inward := 1.0 if team == 0 else -1.0
+		body.rotation.y = inward * PI / 2
+		var down: bool = k.dive > 0 or k.recovery > .45
+		body.rotation.z = lerp_angle(body.rotation.z, k.dive_dir * inward * 1.2 if down else 0.0, 1 - exp(-dt * 18))
+		body.position.y = lerpf(body.position.y, .45 if down else 0.0, 1 - exp(-dt * 18))
+		var holding: bool = sim.keeper_owner == team
+		body.get_node("ArmL").rotation.x = -1.3 if holding or down else -.5
+		body.get_node("ArmR").rotation.x = -1.3 if holding or down else -.5
+		body.get_node("ArmL").rotation.z = -.55 if down else .35
+		body.get_node("ArmR").rotation.z = .55 if down else -.35
+		body.get_node("LegL").rotation.x = sin(sim.elapsed * 18) * minf(.35, absf(k.vel) * .04) - k.kick * 4
+		body.get_node("LegR").rotation.x = -body.get_node("LegL").rotation.x
 	for i in athletes.size():
 		var node: Node3D = athletes[i]
 		var p: Dictionary = sim.players[i]
@@ -269,10 +334,19 @@ func handle_event(event: Dictionary) -> void:
 	var type: String = event.type
 	var color: Color = Stadium.ORANGE if event.get("team", 0) == 0 else Stadium.BLUE
 	match type:
+		"control_changed": apply_profiles()
+		"save":
+			burst(event.pos, Stadium.CREAM, 10, 5)
+			shake = .3
+			play_sound("hit")
+			notice = "SAVED!"
+			notice_time = .65
+		"keeper_dive": burst(event.pos, color, 5, 3)
 		"shot", "pass":
 			burst(event.pos, Stadium.CREAM, 6, 4)
 			play_sound("kick" if type == "shot" else "pass")
 			shake = .25 if type == "shot" else .08
+			if type == "shot": impact_pause(.033)
 		"super":
 			burst(event.pos, Color("ffce56"), 28, 12)
 			super_time = 1.4
@@ -280,10 +354,12 @@ func handle_event(event: Dictionary) -> void:
 			notice = "POWER SHOT!"
 			notice_time = 1.2
 			play_sound("super")
+			impact_pause(.050)
 		"hit":
 			burst(event.pos, color, 12, 7)
 			shake = .48
 			play_sound("hit")
+			impact_pause(.050)
 		"goal":
 			burst(event.pos + Vector3.UP * 2, color, 65, 18)
 			burst(Vector3(0, 3, -4), Color("ffce56"), 45, 13)
@@ -307,6 +383,12 @@ func burst(pos: Vector3, color: Color, count: int, speed: float) -> void:
 		var particle = stadium.sphere(stadium, pos, randf_range(.065, .17), color)
 		var velocity := Vector3(randf_range(-1, 1), randf_range(.3, 1.5), randf_range(-1, 1)).normalized() * randf_range(speed * .3, speed)
 		effects.append({"node": particle, "vel": velocity, "life": randf_range(.35, .85), "max": .85})
+
+func impact_pause(duration: float) -> void:
+	# Present the contact pose first, then briefly freeze the whole shared pitch.
+	# Capped and non-additive: simultaneous hits never stack into a long stall.
+	update_visuals(1.0 / 60)
+	hit_stop = maxf(hit_stop, duration)
 
 func update_effects(dt: float) -> void:
 	for i in range(effects.size() - 1, -1, -1):
@@ -385,15 +467,17 @@ func _input(event: InputEvent) -> void:
 	if paused and not party.managed and (key == KEY_TAB or button == JOY_BUTTON_Y):
 		menu = true
 		paused = false
-		sim.setup(0, false, randi())
+		sim.setup(0, false, randi(), 120, dual_stick)
 	if party.managed and key == KEY_F1: party.send({"type": "request_overlay"})
 
 func adjust_menu(delta: int) -> void:
 	match menu_selection:
-		1: humans = clampi(humans + delta, 1, mini(3 if coop else 4, Input.get_connected_joypads().size() + 2))
+		1: humans = clampi(humans + delta, 1, mini(2 if dual_stick else 4, Input.get_connected_joypads().size() + (1 if dual_stick else 2)))
 		2:
-			coop = not coop
-			if coop: humans = mini(humans, 3)
+			dual_stick = not dual_stick
+			coop = false
+			if dual_stick: humans = mini(humans, 2)
+			sim.setup(0, false, 725, 120, dual_stick)
 		3: match_seconds = clampi(match_seconds + delta * 60, 60, 300)
 		4: sound_enabled = not sound_enabled
 
@@ -403,10 +487,10 @@ func on_party_command(message: Dictionary) -> void:
 			host_active = false
 			menu = false
 			paused = true
-			humans = party.human_seats().size()
+			humans = mini(party.human_seats().size(), 2 if dual_stick else 4)
 			coop = false
 			managed_buttons.clear()
-			sim.setup(humans, false, 725, match_seconds)
+			sim.setup(humans, false, 725, match_seconds, dual_stick)
 			apply_profiles()
 			party.send({"type": "participation", "session": party.session, "instant_join": false})
 			# Wait until the renderer has prepared the arena before Ready.
@@ -465,8 +549,9 @@ func apply_profiles() -> void:
 		p.erase("profile")
 		athletes[i].get_node("Body/Head").material_override = stadium.material(Stadium.CREAM)
 		athletes[i].get_node("Body/Headband").material_override = stadium.material(Stadium.ORANGE if p.team == 0 else Stadium.BLUE)
-		if p.human < 0 or p.human >= seats.size(): continue
-		var id: String = str(seats[p.human].get("occupant", {}).get("player_id", ""))
+		var person: int = p.human / 2 if dual_stick else p.human
+		if p.human < 0 or person >= seats.size(): continue
+		var id: String = str(seats[person].get("occupant", {}).get("player_id", ""))
 		var profile: Dictionary = party.profiles.get(id, {})
 		p.name = str(profile.get("name", "P%d" % (p.human + 1)))
 		p.profile = profile

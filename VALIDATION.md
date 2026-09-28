@@ -1,5 +1,28 @@
 # Prototype validation — 2026-09-28
 
+## Dual-controller experiment
+
+Default mode: one controller owns both outfield units on one team. Tests cover
+separate stick axes, independent shoulder edges, fixed ownership, stale-input
+neutralization, disabled pass/sprint, aim matching the shot vector, dash-volley
+contact, and capped hit-stop with simulation resumption. Classic controls and
+AI remain available. Both suites pass, including 20 input/lifecycle checks.
+Three full Dual-rules AI games finished 3–0, 3–2 and 1–2 with no passes.
+
+## 2v2, goalkeepers and possession controls (earlier balance baseline)
+
+36 simulation checks and 13 input/lifecycle checks passed after adding one
+AI keeper per team, alongside two outfield players. Coverage includes
+catches, quick distribution, swept saves at high speed, reachable corner shots,
+rebound goals during recovery, dive commitment and kickoff resets. Shared
+shoot/tackle input and auto-switch on possession are covered, including
+preserving other humans' controller ownership.
+
+Five seeded bot matches finished with scores 3–1, 2–1, 1–2, 2–1 and 1–3:
+17 goals, 110 saves, 61 shots, 187 passes, 350 tackles and 5 power shots.
+
+## Initial prototype baseline
+
 Godot 4.5.2, Windows, NVIDIA RTX 5070 Ti.
 
 - Simulation regression suite: 22 assertions passed. Includes team composition,
