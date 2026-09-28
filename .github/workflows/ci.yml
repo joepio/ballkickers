@@ -1,0 +1,66 @@
+name: Build and release
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned Godot 4.5.2
+        shell: pwsh
+        run: |
+          $archive = "$env:RUNNER_TEMP/godot.zip"
+          Invoke-WebRequest 'https://github.com/godotengine/godot-builds/releases/download/4.5.2-stable/Godot_v4.5.2-stable_win64.exe.zip' -OutFile $archive
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne '3766090865330AB2A0ED33594520394B711C620B1378F9223904FAEEF60F2F14') { throw 'Godot checksum mismatch' }
+          Expand-Archive $archive "$env:RUNNER_TEMP/godot"
+      - name: Build and test
+        shell: pwsh
+        run: ./tools/build.ps1 -Godot "$env:RUNNER_TEMP/godot/Godot_v4.5.2-stable_win64_console.exe"
+      - name: Test packaged GameNight integration
+        shell: pwsh
+        run: |
+          foreach ($teams in 1..3) {
+            python tests/wire.py "$PWD/build/Ballkickers.exe" $teams
+            if ($LASTEXITCODE -ne 0) { throw "Packaged integration failed for mode $teams" }
+          }
+      - name: Package portable download
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python tools/package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ballkickers-windows
+          path: |
+            build/ballkickers-windows.zip
+            build/SHA256SUMS.txt
+          if-no-files-found: error
+  release:
+    needs: windows
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ballkickers-windows
+          path: release
+      - name: Publish tested build and preview assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          cd release
+          sha256sum --check SHA256SUMS.txt
+          gh release create "$RELEASE_TAG" ballkickers-windows.zip SHA256SUMS.txt ../assets/preview.mp4 ../assets/gameplay.jpg ../assets/cover.png ../assets/icon.png --repo "$GITHUB_REPOSITORY" --verify-tag --title "Ballkickers $RELEASE_TAG" --notes-file ../docs/release-notes.md

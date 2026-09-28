@@ -147,7 +147,7 @@ func build() -> void:
 		for xx in [-4.5, 4.5]: rod(self, Vector3(x + xx, 0, -19), Vector3(x + xx, 5.1, -19), .15, INK)
 	box(self, Vector3(0, 5.2, -19), Vector3(14.2, 3.6, .55), INK)
 	box(self, Vector3(0, 7.1, -19), Vector3(14.5, .16, .65), Color("ffc94d"))
-	label3(self, "GOAL RUSH", Vector3(0, 5.8, -18.68), 112, CREAM)
+	label3(self, "BALLKICKERS", Vector3(0, 5.8, -18.68), 82, CREAM)
 	label3(self, "NO FOULS. ALL FOOTBALL.", Vector3(0, 4.6, -18.68), 30, Color("ffc94d"))
 	for x in [-15, -5, 5, 15]:
 		label3(self, "PLAY LOUD" if abs(x) == 15 else "RUSH!", Vector3(x, .5, -12.1), 35, ORANGE if x < 0 else BLUE)

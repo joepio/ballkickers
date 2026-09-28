@@ -144,7 +144,7 @@ func _draw() -> void:
 		text("PASS", Vector2(679, 867), 15)
 		text("HOLD X: CHARGE", Vector2(755, 867), 14)
 		text("RT  SPRINT     LB  SWITCH", Vector2(895, 867), 15)
-	text("GOAL RUSH", Vector2(30, 870), 18, CREAM, true)
+	text("BALLKICKERS", Vector2(30, 870), 18, CREAM, true)
 	if s.phase == "kickoff":
 		centered("GET READY", 369, 21, GOLD)
 		centered(str(maxi(1, int(ceil(s.phase_time)))), 479, 100)
@@ -174,8 +174,8 @@ func draw_menu() -> void:
 	draw_rect(Rect2(0, 0, 615, 900), Color(.06, .12, .18, .96))
 	draw_colored_polygon(PackedVector2Array([Vector2(615, 0), Vector2(715, 0), Vector2(615, 900)]), Color(.06, .12, .18, .96))
 	text("PARTY FOOTBALL", Vector2(64, 82), 19, GOLD, true)
-	text("GOAL", Vector2(55, 221), 112, CREAM, true)
-	text("RUSH", Vector2(55, 326), 112, ORANGE, true)
+	text("BALL", Vector2(55, 221), 112, CREAM, true)
+	text("KICKERS", Vector2(55, 326), 79, ORANGE, true)
 	text("More friends. Bigger trouble.", Vector2(66, 375), 25, CREAM)
 	var matchup: String = "MATCHUP     %s" % ("%dv%d" % [game.team_size, game.team_size] if game.humans > 1 else "SOLO vs AI") if game.dual_stick else "PLAYERS     %d" % game.humans
 	var options: Array = ["KICK OFF", matchup, "CONTROLS    %s" % ("SINGLE" if game.team_size > 1 else ("DUAL" if game.dual_stick else "CLASSIC")), "MATCH       %d MIN" % (game.match_seconds / 60), "SOUND       %s" % ("ON" if game.sound_enabled else "OFF")]

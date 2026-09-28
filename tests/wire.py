@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GODOT = sys.argv[1] if len(sys.argv) > 1 else "C:/dev/tools/godot/Godot_v4.5.2-stable_win64_console.exe"
 TEAMS = int(sys.argv[2]) if len(sys.argv) > 2 else 1
 assert 1 <= TEAMS <= 3
-GAME_ID = "goal-rush" if TEAMS == 1 else f"goal-rush-{TEAMS}v{TEAMS}"
+GAME_ID = "ballkickers" if TEAMS == 1 else f"ballkickers-{TEAMS}v{TEAMS}"
 
 def exact(sock, count):
     result = b""
@@ -57,7 +57,7 @@ with socket.socket() as server:
     env = dict(os.environ, GAMENIGHT="1", GAMENIGHT_ADDR=f"127.0.0.1:{server.getsockname()[1]}", GAMENIGHT_GAME_ID=GAME_ID, GAMENIGHT_TOKEN="local-test-token")
     log_path = ROOT / "captures" / "wire.log"
     log = log_path.open("w", encoding="utf-8")
-    project_args = [] if Path(GODOT).stem == "GoalRush" else ["--path",str(ROOT)]
+    project_args = [] if Path(GODOT).stem == "Ballkickers" else ["--path",str(ROOT)]
     process = subprocess.Popen([GODOT.replace("_console.exe", ".exe"),"--headless","--audio-driver","Dummy",*project_args,"--","--mute",f"--teams={TEAMS}"], env=env, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, text=True)
     try:
         with server.accept()[0] as peer:

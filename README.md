@@ -1,12 +1,17 @@
-# Goal Rush
+# Ballkickers
+
+[Download for Windows](https://github.com/joepio/ballkickers/releases/latest)
+ · [Gameplay preview](https://github.com/joepio/ballkickers/raw/main/assets/preview.mp4)
+
+![Ballkickers gameplay](assets/gameplay.jpg)
 
 A playful, fast party football prototype for Godot 4.5.2. Original procedural
 stadium, marshmallow athletes, synthesised Foley and arcade ball physics.
 
 ## Play
 
-Open `build/GoalRush.exe`. It is a standalone Windows build; no Godot install is
-needed. Keep `GoalRush.pck` beside it. Alternatively open `project.godot` in Godot.
+Open `build/Ballkickers.exe`. It is a standalone Windows build; no Godot install is
+needed. Keep `Ballkickers.pck` beside it. Alternatively open `project.godot` in Godot.
 
 The default **1v1 Dual** experiment gives each person two outfield players.
 Select **2v2 or 3v3** in Matchup for one unit per controller, plus an automatic
@@ -65,7 +70,10 @@ athlete is never taken over. LB / Space still switches manually off the ball.
 
 `tools/register_gamenight.ps1` adds this local build without replacing other
 local games. Restart GameNight to refresh the local shelf.
-It registers separate **Goal Rush 1v1, 2v2 and 3v3 (Local)** entries, sharing the
+The published GameNight entry automatically selects 1v1 for one/two humans,
+2v2 for three/four, or 3v3 for five/six. The party can override this using the
+Matchup setting; changes apply to the next match.
+It registers separate **Ballkickers 1v1, 2v2 and 3v3 (Local)** entries, sharing the
 latest build. The game adapter supports six human seats; the current GameNight
 lobby exposes only four. Consequently, 3v3 can currently launch there with bots
 in the remaining places, but six humans require a host with six-seat support.
@@ -84,7 +92,7 @@ only; no online netcode. A managed match automatically rematches after nine seco
 
 ```powershell
 ./tools/build.ps1
-./build/GoalRush.exe -- --demo --stats
+./build/Ballkickers.exe -- --demo --stats
 ```
 
 Simulation and input/lifecycle regression scripts run during the build.
@@ -100,3 +108,15 @@ Shots have 33 ms of hit-stop and successful impacts 50 ms, capped rather than st
 
 This is a first playable prototype, not a certified GameNight release.
 Physical multi-controller testing and match balance still benefit from playtests.
+
+## Releases
+
+GitHub Actions builds and tests Windows on pushes and pull requests. Push a
+`v*` tag to publish a tested portable ZIP, SHA-256 checksums and preview assets.
+The download includes the official Godot runner and its license notices.
+Only distributable files are packaged; captures, local registrations and backups
+are excluded. The current release targets Windows x86-64.
+
+The five-second preview is captured with `tools/capture_preview.gd`: three staged
+setups using the real game simulation, AI, shot and tackle mechanics. It is
+bot-driven gameplay, not footage of a human match. See the harness for seeds.

@@ -20,6 +20,8 @@ var menu_selection := 0
 var paused := false
 var humans := 2
 var team_size := 1
+var team_override := false
+var managed_matchup := "Auto"
 var coop := false
 var dual_stick := true
 var match_seconds := 120
@@ -51,7 +53,7 @@ var overlay_after := 0
 var frame_samples: Array = []
 
 func _ready() -> void:
-	print("Goal Rush: loading stadium")
+	print("Ballkickers: loading stadium")
 	Engine.max_fps = 120
 	for arg in OS.get_cmdline_user_args():
 		if arg == "--demo": demo = true
@@ -61,6 +63,7 @@ func _ready() -> void:
 		elif arg.begins_with("--teams="):
 			team_size = clampi(int(arg.trim_prefix("--teams=")), 1, 3)
 			humans = team_size * 2
+			team_override = true
 		elif arg == "--stats": show_stats = true
 		elif arg == "--mute": sound_enabled = false
 		elif arg == "--fullscreen": DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
@@ -96,7 +99,7 @@ func _ready() -> void:
 	hud.game = self
 	party.command.connect(on_party_command)
 	add_child(party)
-	print("Goal Rush: ready; %d local controllers" % Input.get_connected_joypads().size())
+	print("Ballkickers: ready; %d local controllers" % Input.get_connected_joypads().size())
 	for name in ["kick", "pass", "hit", "goal", "whistle", "super"]:
 		var path := "res://assets/%s.wav" % name
 		if ResourceLoader.exists(path): sounds[name] = load(path)
@@ -122,8 +125,16 @@ func sync_arena() -> void:
 		athletes[i].visible = i < sim.players.size()
 		if i < sim.players.size(): athletes[i].position = Match.vec3(sim.players[i].pos)
 
+func configure_managed_matchup() -> void:
+	if managed_matchup != "Auto":
+		team_size = int(managed_matchup.left(1))
+	elif not team_override:
+		var count: int = party.human_seats().size()
+		team_size = 1 if count <= 2 else (2 if count <= 4 else 3)
+
 func start_match() -> void:
 	if party.managed:
+		configure_managed_matchup()
 		humans = party.human_seats().size()
 	else:
 		devices.clear()
@@ -292,7 +303,7 @@ func _process(dt: float) -> void:
 		var mean := 0.0
 		for sample in frame_samples: mean += sample
 		mean /= maxf(1, frame_samples.size())
-		print("GOAL_RUSH_METRICS ", JSON.stringify({"fps": Engine.get_frames_per_second(), "mean_frame_ms": mean, "p95_frame_ms": frame_samples[int(frame_samples.size() * .95)] if not frame_samples.is_empty() else 0, "draw_calls": Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), "objects": Performance.get_monitor(Performance.OBJECT_NODE_COUNT), "stats": sim.stats, "score": sim.score}))
+		print("BALLKICKERS_METRICS ", JSON.stringify({"fps": Engine.get_frames_per_second(), "mean_frame_ms": mean, "p95_frame_ms": frame_samples[int(frame_samples.size() * .95)] if not frame_samples.is_empty() else 0, "draw_calls": Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), "objects": Performance.get_monitor(Performance.OBJECT_NODE_COUNT), "stats": sim.stats, "score": sim.score}))
 		get_tree().quit()
 
 func update_visuals(dt: float) -> void:
@@ -528,6 +539,7 @@ func on_party_command(message: Dictionary) -> void:
 			host_active = false
 			menu = false
 			paused = true
+			configure_managed_matchup()
 			humans = mini(party.human_seats().size(), team_size * 2 if dual_stick else team_size * 4)
 			coop = false
 			managed_buttons.clear()
@@ -582,6 +594,8 @@ func on_party_command(message: Dictionary) -> void:
 		"party_updated": apply_profiles()
 		"setting_changed":
 			if message.get("key", "") == "seconds": match_seconds = clampi(int(message.get("value", 120)), 60, 300)
+			elif message.get("key", "") == "matchup" and message.get("value", "") in ["Auto", "1v1", "2v2", "3v3"]:
+				managed_matchup = message.value
 
 func apply_profiles() -> void:
 	if not party.managed: return

@@ -32,7 +32,7 @@ func _process(_dt: float) -> void:
 		if not hello_sent:
 			hello_sent = true
 			var game := OS.get_environment("GAMENIGHT_GAME_ID")
-			send({"type": "hello", "role": "game", "game": game if game != "" else "goal-rush", "token": OS.get_environment("GAMENIGHT_TOKEN")})
+			send({"type": "hello", "role": "game", "game": game if game != "" else "ballkickers", "token": OS.get_environment("GAMENIGHT_TOKEN")})
 		while socket.get_available_packet_count() > 0:
 			var message = JSON.parse_string(socket.get_packet().get_string_from_utf8())
 			if message is Dictionary: handle(message)
@@ -57,7 +57,9 @@ func handle(message: Dictionary) -> void:
 			frame_time = Time.get_ticks_msec()
 			for record in message.get("controllers", []): frames[str(record.get("controller", ""))] = record
 		"welcome":
-			send({"type": "declare_settings", "settings": [{"key": "seconds", "label": "Match length", "kind": "number", "default": 120, "min": 60, "max": 300}]})
+			send({"type": "declare_settings", "settings": [
+				{"key": "seconds", "label": "Match length", "kind": "number", "default": 120, "min": 60, "max": 300},
+				{"key": "matchup", "label": "Matchup (next match)", "kind": "choice", "default": "Auto", "options": ["Auto", "1v1", "2v2", "3v3"]}]})
 	command.emit(message)
 
 func update_profiles(players: Array) -> void:
