@@ -12,7 +12,7 @@ func _initialize() -> void:
 		s.setup(teams * 2, false, 42, 120, true, teams)
 		var count: int = 4 if teams == 1 else teams * 2
 		check(s.players.size() == count, "%dv%d roster" % [teams, teams])
-		check(is_equal_approx(s.half_x * s.half_z / (21 * 12), float(teams)), "pitch area scales with team count")
+		check(is_equal_approx(s.half_x * s.half_z / (21 * 12), 3.0 if teams == 3 else 1.0), "1v1 and 2v2 share the original pitch; 3v3 retains its larger pitch")
 		for kickoff_team in [-1, 0, 1]:
 			s.kickoff(kickoff_team)
 			for controller in teams * 2:

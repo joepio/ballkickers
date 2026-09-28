@@ -12,8 +12,8 @@ The default **1v1 Dual** experiment gives each person two outfield players.
 Select **2v2 or 3v3** in Matchup for one unit per controller, plus an automatic
 keeper on each team. Three humans in 2v2 or five in 3v3 get one bot in the empty
 place. Controller seats alternate orange/blue teams and retain ownership.
-Larger modes have two or three times the pitch area, with unchanged unit and
-goal sizes. `-- --teams=2` or `-- --teams=3` selects them on launch.
+1v1 and 2v2 share the original pitch size. 3v3 has three times the pitch area,
+with unchanged unit and goal sizes. `-- --teams=2` or `-- --teams=3` selects them on launch.
 The menu defaults to **1v1** (two controllers). At every kickoff and rematch,
 each team's L unit starts screen-left of its R unit; stick ownership stays fixed
 while you play, even if the units cross each other.

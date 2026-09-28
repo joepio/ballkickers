@@ -32,10 +32,13 @@ var overtime := false
 var events: Array = []
 var stats := {"shots": 0, "passes": 0, "tackles": 0, "goals": 0, "supers": 0}
 
+static func pitch_scale(teams: int) -> float:
+	return sqrt(3.0) if teams >= 3 else 1.0
+
 func setup(humans: int = 1, coop: bool = false, seed_value: int = 42, seconds: float = 120, dual: bool = false, controllers_per_team: int = 1) -> void:
 	team_size = clampi(controllers_per_team, 1, 3)
-	half_x = HALF_X * sqrt(float(team_size))
-	half_z = HALF_Z * sqrt(float(team_size))
+	half_x = HALF_X * pitch_scale(team_size)
+	half_z = HALF_Z * pitch_scale(team_size)
 	rng.seed = seed_value
 	dual_control = dual and team_size == 1
 	arcade_control = dual or team_size > 1
@@ -85,7 +88,7 @@ func kickoff(team: int) -> void:
 		# not the controller halves: L starts left and R starts right each kickoff.
 		var spawn_role: int = 1 - (p.role % 2) if dual_control and p.team == 0 else p.role % 2
 		p.pos = Vector2(-direction * (5.5 if spawn_role == 0 else 12.0), 0 if spawn_role == 0 else 4.5)
-		p.pos.x *= sqrt(float(team_size))
+		p.pos.x *= pitch_scale(team_size)
 		if team_size > 1: p.pos.y = (float(p.role) - (team_size - 1) * .5) * (half_z * 1.35 / team_size)
 		p.vel = Vector2.ZERO
 		p.face = Vector2(direction, 0)

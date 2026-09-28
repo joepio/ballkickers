@@ -163,7 +163,7 @@ func build() -> void:
 
 func resize_pitch(teams: int) -> void:
 	pitch_size = teams
-	var factor := sqrt(float(teams))
+	var factor: float = preload("res://src/match.gd").pitch_scale(teams)
 	for entry in arena_nodes:
 		var node: GeometryInstance3D = entry.node
 		node.transform = entry.transform

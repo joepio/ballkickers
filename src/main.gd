@@ -277,7 +277,7 @@ func _process(dt: float) -> void:
 		if hit_stop <= 0:
 			update_visuals(dt)
 			update_effects(dt)
-	var factor := sqrt(float(team_size))
+	var factor := Match.pitch_scale(team_size)
 	camera.size = 33 * factor
 	var target_x := -9.0 * factor if menu else 0.0
 	var offset := Vector3(sin(run_time * 67) * shake * .12, 0, cos(run_time * 79) * shake * .1)
