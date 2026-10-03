@@ -1,0 +1,23 @@
+Ballkickers audio credits
+
+Recorded sources are CC0 1.0 (public domain dedication):
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Joseph SARDIN / BigSoundBank:
+- Ball Kicked, sound 1044: https://bigsoundbank.com/ball-kicked-s1044.html
+  Download: https://bigsoundbank.com/UPLOAD/mp3/1044.mp3
+- Plastic Whistle #1, sound 1017: https://bigsoundbank.com/plastic-whistle-s1017.html
+  Download: https://bigsoundbank.com/UPLOAD/mp3/1017.mp3
+Pages explicitly identify the recordings as CC0 and permit modification and
+redistribution. Retrieved 2 October 2026. MP3 source previews were decoded to PCM.
+
+Kenney, Impact Sounds (1.0), 19 December 2019:
+https://kenney.nl/assets/impact-sounds
+- impactSoft_medium_000 through 004.ogg
+- footstep_grass_000 through 004.ogg
+The pack's original License.txt is preserved in tools/audio_sources.
+
+Edits: transient trimming, filtering, fades, gain matching and layering.
+Original additions: resonant power/kick accents and the goal melody.
+Processed game effects are in assets/*.wav; reproducible editing source and
+render hashes are in tools/generate_audio.py and tools/audio_sources.

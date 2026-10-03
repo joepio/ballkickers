@@ -1,0 +1,3 @@
+# Use a separate environment; install a compatible CPU or CUDA torch/torchaudio pair first.
+audiobox-aesthetics==0.0.4
+requests==2.34.2

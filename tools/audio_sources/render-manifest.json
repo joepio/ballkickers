@@ -1,0 +1,110 @@
+{
+  "kick.wav": {
+    "seconds": 0.24,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -22.12,
+    "sha256": "40cd2ca43f713e1b3e7a31c02b9b011536039f44b357d0792ce31aa4e104478f"
+  },
+  "kick_2.wav": {
+    "seconds": 0.24,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -22.15,
+    "sha256": "1a16ad89e345ab054e018a252286278817408f25a29bbba56927c05239ca3822"
+  },
+  "kick_3.wav": {
+    "seconds": 0.24,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -23.18,
+    "sha256": "18e496430a031212236d4e4af633c585c3daba6ae30b84510160e66015d02b03"
+  },
+  "kick_4.wav": {
+    "seconds": 0.24,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -20.28,
+    "sha256": "09b4dfd3b0e2bfca10ac079eaca8a7f1320d4959b3fcbe8a0021ac3fe9845b62"
+  },
+  "pass.wav": {
+    "seconds": 0.24,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -20.75,
+    "sha256": "6d15d889ad5d311f40b2bdb60aad1b993830278894978715e5bbf23b80871629"
+  },
+  "pass_2.wav": {
+    "seconds": 0.24,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -21.7,
+    "sha256": "689043241a3e2c9ee44a750e4605c42419121a74239d524395a6dbbcc8feb88c"
+  },
+  "pass_3.wav": {
+    "seconds": 0.24,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -20.0,
+    "sha256": "dbbd3f7c20fb556b672c850340f073af2764315af54fb37fb6f624e0623ecc29"
+  },
+  "hit.wav": {
+    "seconds": 0.27,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -21.08,
+    "sha256": "240c5464fbfa5abd703066e3b66fba4fa1e19f5f6a4d0e17e84a9f85f3979549"
+  },
+  "hit_2.wav": {
+    "seconds": 0.27,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -19.07,
+    "sha256": "4d460c893b8399c7b5d3d4a82272376bdfb0956231920ce7b1113c2058cfa6e4"
+  },
+  "hit_3.wav": {
+    "seconds": 0.27,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -20.13,
+    "sha256": "8937af721fd1a3c43bfcfff63d1e85f7e5cfe10bd51c8ba479a463949324a85c"
+  },
+  "hit_4.wav": {
+    "seconds": 0.27,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -19.29,
+    "sha256": "632e5d50c3e47313499e76212088213fc29c657b0054a1be418c75b842452036"
+  },
+  "save.wav": {
+    "seconds": 0.3,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -19.73,
+    "sha256": "e35b5256089533210a54144cc30dae147abe41ead8fad96513ab88b36e71d2c8"
+  },
+  "save_2.wav": {
+    "seconds": 0.3,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -20.76,
+    "sha256": "b621069bcbeaa3f36a34bfd83a5d3d8b9501adb9c01694507669b27d7310b88e"
+  },
+  "save_3.wav": {
+    "seconds": 0.3,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -21.2,
+    "sha256": "365d1725c6854c6ac0f8ea447b36ac600d839bbdff58ef7c93f0d670dc01ec92"
+  },
+  "whistle.wav": {
+    "seconds": 0.325,
+    "peak_dbfs": -6.02,
+    "rms_dbfs": -14.95,
+    "sha256": "58861b9ae093d23603c422b4aa6412426cb8402e9be18a9b74f6bf6d3eccf7bf"
+  },
+  "super.wav": {
+    "seconds": 0.62,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -23.3,
+    "sha256": "dabba7ba7cc4b7ccdc16854187e0180e2616fc8867dda33a9196007370689f57"
+  },
+  "super_2.wav": {
+    "seconds": 0.62,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -26.34,
+    "sha256": "00a02f61847dc0c7638aa0206f9fbaac845945cd8c70ca7c0e1f6afb4d3c8591"
+  },
+  "goal.wav": {
+    "seconds": 1.5,
+    "peak_dbfs": -2.85,
+    "rms_dbfs": -16.15,
+    "sha256": "fa7a6133a8a2a9d9bb71decc8ffeae390f524fca27b7f918aa113e503eebc5d9"
+  }
+}

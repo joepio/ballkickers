@@ -7,7 +7,7 @@ build=root/'build'
 output=build/'ballkickers-windows.zip'
 files={'Ballkickers.exe':build/'Ballkickers.exe', 'Ballkickers.pck':build/'Ballkickers.pck',
        'README.md':root/'README.md', 'LICENSE':root/'LICENSE'}
-for path in sorted((root/'third_party').glob('Godot-*.txt')): files['licenses/'+path.name]=path
+for path in sorted((root/'third_party').glob('*.txt')): files['licenses/'+path.name]=path
 with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as archive:
     for name,path in files.items():
         info=zipfile.ZipInfo(name,date_time=(2026,9,28,0,0,0))

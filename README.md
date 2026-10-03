@@ -6,7 +6,7 @@
 ![Ballkickers gameplay](assets/gameplay.jpg)
 
 A playful, fast party football prototype for Godot 4.5.2. Original procedural
-stadium, marshmallow athletes, synthesised Foley and arcade ball physics.
+stadium, marshmallow athletes, recorded football Foley, original arcade accents and arcade ball physics.
 
 ## Play
 
@@ -96,13 +96,17 @@ only; no online netcode. A managed match automatically rematches after nine seco
 ```
 
 Simulation and input/lifecycle regression scripts run during the build.
-`tools/generate_audio.py` regenerates the six original sound effects.
+`tools/generate_audio.py` rebuilds 18 sound effects from the included CC0 recordings
+(requires Python, NumPy and ffmpeg). See `third_party/AUDIO-CREDITS.txt`.
+The audio uses non-repeating variations, softer contact levels, duplicate
+suppression and dedicated goal/whistle voices. `tests/audio.gd` checks playback.
 `-- --demo --capture=E:/path/frame.png --capture-at=12 --exit-at=30` produces
 repeatable visual captures and frame statistics. Tests use fixed seeds.
 
 Static stadium geometry is combined by material; 400 spectators use one
-MultiMesh. A single orthographic camera scales to keep the whole pitch visible. No
-downloaded art, third-party character assets, or heavyweight postprocessing.
+MultiMesh. A single orthographic camera scales to keep the whole pitch visible. No downloaded visual art, third-party character assets, or heavyweight postprocessing.
+Football and whistle recordings by Joseph SARDIN / BigSoundBank and soft impacts
+by Kenney are CC0; the goal melody and power accents are original.
 
 Shots have 33 ms of hit-stop and successful impacts 50 ms, capped rather than stacked.
 

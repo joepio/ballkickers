@@ -43,7 +43,7 @@ var capture_at := 4.0
 var capture_done := false
 var exit_at := 0.0
 var sound_players: Array = []
-var sounds: Dictionary = {}
+var audio = preload("res://src/sound.gd").new()
 var profile_textures: Dictionary = {}
 var host_active := false
 var last_activity := 0
@@ -100,13 +100,8 @@ func _ready() -> void:
 	party.command.connect(on_party_command)
 	add_child(party)
 	print("Ballkickers: ready; %d local controllers" % Input.get_connected_joypads().size())
-	for name in ["kick", "pass", "hit", "goal", "whistle", "super"]:
-		var path := "res://assets/%s.wav" % name
-		if ResourceLoader.exists(path): sounds[name] = load(path)
-	for i in 10:
-		var player := AudioStreamPlayer.new()
-		add_child(player)
-		sound_players.append(player)
+	add_child(audio)
+	sound_players = audio.players
 	sim.setup(0, false, 725, 120, dual_stick, team_size)
 	sync_arena()
 	if demo:
@@ -153,6 +148,7 @@ func start_match() -> void:
 	result_time = 0
 	hit_stop = 0.0
 	clear_effects()
+	audio.reset()
 	play_sound("whistle")
 
 func _physics_process(dt: float) -> void:
@@ -378,7 +374,7 @@ func handle_event(event: Dictionary) -> void:
 		"save":
 			burst(event.pos, Stadium.CREAM, 10, 5)
 			shake = .3
-			play_sound("hit")
+			play_sound("save")
 			notice = "SAVED!"
 			notice_time = .65
 		"keeper_beaten":
@@ -456,14 +452,8 @@ func clear_effects() -> void:
 	for entry in trail: entry.life = 0.0
 
 func play_sound(name: String) -> void:
-	if not sound_enabled or not sounds.has(name) or menu or (party.managed and not host_active): return
-	for player in sound_players:
-		if not player.playing:
-			player.stream = sounds[name]
-			player.volume_db = -13 if name != "goal" else -16
-			player.pitch_scale = randf_range(.94, 1.06) if name in ["kick", "hit", "pass"] else 1.0
-			player.play()
-			break
+	if not sound_enabled or menu or paused or (party.managed and not host_active): return
+	audio.play_cue(name)
 
 func _input(event: InputEvent) -> void:
 	var key := 0
@@ -531,7 +521,9 @@ func adjust_menu(delta: int) -> void:
 			if dual_stick: humans = mini(humans, team_size * 2)
 			sim.setup(0, false, 725, 120, dual_stick, team_size)
 		3: match_seconds = clampi(match_seconds + delta * 60, 60, 300)
-		4: sound_enabled = not sound_enabled
+		4:
+			sound_enabled = not sound_enabled
+			if not sound_enabled: audio.reset()
 
 func on_party_command(message: Dictionary) -> void:
 	match message.get("type", ""):
