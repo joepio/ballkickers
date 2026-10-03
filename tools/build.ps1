@@ -5,6 +5,8 @@ $goalOutput = Join-Path $goalRoot 'build'
 New-Item -ItemType Directory -Force -Path $goalOutput | Out-Null
 & $Godot --headless --path $goalRoot --editor --import --quit
 if ($LASTEXITCODE -ne 0) { throw 'Godot import failed' }
+& $Godot --headless --path $goalRoot --script res://tests/settings.gd
+if ($LASTEXITCODE -ne 0) { throw 'Settings checks failed' }
 & $Godot --headless --path $goalRoot --script res://tests/simulation.gd
 if ($LASTEXITCODE -ne 0) { throw 'Simulation checks failed' }
 & $Godot --headless --path $goalRoot --script res://tests/input_lifecycle.gd

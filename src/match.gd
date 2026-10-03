@@ -5,6 +5,12 @@ const HALF_Z = 12.0
 const GOAL_Z = 3.7
 const GOAL_HEIGHT = 3.1
 const RADIUS = 0.65
+var run_speed := 1.0
+var shot_power := 1.0
+var ball_friction := 1.0
+var keeper_speed := 1.0
+var power_charge := 1.0
+var super_shots := true
 var team_size := 1
 var half_x := HALF_X
 var half_z := HALF_Z
@@ -129,7 +135,7 @@ func step(dt: float, inputs: Dictionary = {}) -> void:
 		return
 	if not overtime: clock = maxf(0, clock - dt)
 	pickup_lock = maxf(0, pickup_lock - dt)
-	for team in 2: power[team] = minf(100, power[team] + dt * 1.9)
+	for team in 2: power[team] = minf(100, power[team] + dt * 1.9 * power_charge)
 	for i in players.size():
 		var p: Dictionary = players[i]
 		var control: Dictionary = inputs.get(p.human, {}) if p.human >= 0 else ai_input(i, dt)
@@ -164,7 +170,7 @@ func move_player(i: int, input: Dictionary, dt: float) -> void:
 		if move.length() > .15: p.face = p.face.slerp(move.normalized(), minf(1, dt * 22))
 		var sprint: bool = input.get("sprint", false) and p.stamina > .05 and move.length() > .1
 		p.stamina = clampf(p.stamina + dt * (-.32 if sprint else .24), 0, 1)
-		var speed := 12.8 if sprint else 9.0
+		var speed := (12.8 if sprint else 9.0) * run_speed
 		if owner == i: speed *= .91
 		if p.charge > 0: speed *= .66
 		if p.dash > 0:
@@ -234,7 +240,7 @@ func shoot_ball(i: int) -> void:
 	if arcade_control: direction = p.face
 	elif p.face.dot(direction) > .1: direction = toward
 	else: direction = p.face
-	var super_shot: bool = charge >= .85 and power[p.team] >= 99
+	var super_shot: bool = super_shots and charge >= .85 and power[p.team] >= 99
 	if super_shot:
 		power[p.team] = 0.0
 		stats.supers += 1
@@ -242,7 +248,7 @@ func shoot_ball(i: int) -> void:
 	owner = -1
 	last_touch = i
 	ball = vec3(p.pos + direction * 1.2, .55)
-	ball_velocity = vec3(direction * (55.0 if super_shot else 24.0 + charge * 17.0), 2.6 + charge * 1.2)
+	ball_velocity = vec3(direction * (55.0 if super_shot else 24.0 + charge * 17.0) * shot_power, 2.6 + charge * 1.2)
 	pickup_lock = .22
 	p.kick = .25
 	p.charge = 0.0
@@ -294,7 +300,7 @@ func move_ball(dt: float) -> void:
 	if ball.y < .43:
 		ball.y = .43
 		ball_velocity.y = absf(ball_velocity.y) * .48 if absf(ball_velocity.y) > 1 else 0.0
-		var ground_velocity := Vector2(ball_velocity.x, ball_velocity.z).move_toward(Vector2.ZERO, dt * 3.6)
+		var ground_velocity := Vector2(ball_velocity.x, ball_velocity.z).move_toward(Vector2.ZERO, dt * 3.6 * ball_friction)
 		ball_velocity.x = ground_velocity.x
 		ball_velocity.z = ground_velocity.y
 	if absf(ball.z) > half_z - .43:
@@ -469,10 +475,10 @@ func update_keepers(dt: float) -> void:
 				k.dive = .28
 				k.recovery = .85
 				k.dive_dir = signf(target - k.pos.y)
-				k.vel = k.dive_dir * 12.0
+				k.vel = k.dive_dir * 12.0 * keeper_speed
 				events.append({"type": "keeper_dive", "pos": vec3(k.pos, .7), "team": k.team})
 			else:
-				k.vel = clampf((target - k.pos.y) * 6, -4.5, 4.5)
+				k.vel = clampf((target - k.pos.y) * 6, -4.5, 4.5) * keeper_speed
 				k.pos.y += k.vel * dt
 		else: k.vel = 0.0
 		k.pos.y = clampf(k.pos.y, -3.25, 3.25)

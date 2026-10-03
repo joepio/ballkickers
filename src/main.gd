@@ -3,6 +3,7 @@ const Match = preload("res://src/match.gd")
 const Stadium = preload("res://src/stadium.gd")
 const Hud = preload("res://src/hud.gd")
 const Party = preload("res://src/party.gd")
+var settings = preload("res://src/settings.gd").new()
 var sim = Match.new()
 var stadium = Stadium.new()
 var hud = Hud.new()
@@ -593,9 +594,11 @@ func on_party_command(message: Dictionary) -> void:
 			party.hide_game()
 		"party_updated": apply_profiles()
 		"setting_changed":
-			if message.get("key", "") == "seconds": match_seconds = clampi(int(message.get("value", 120)), 60, 300)
-			elif message.get("key", "") == "matchup" and message.get("value", "") in ["Auto", "1v1", "2v2", "3v3"]:
-				managed_matchup = message.value
+			var key: String = str(message.get("key", ""))
+			if not settings.change(key, message.get("value")): return
+			settings.apply_live(sim)
+			if key == "seconds": match_seconds = settings.values.seconds
+			elif key == "matchup": managed_matchup = settings.values.matchup
 
 func apply_profiles() -> void:
 	if not party.managed: return
