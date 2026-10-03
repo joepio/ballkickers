@@ -57,9 +57,7 @@ func handle(message: Dictionary) -> void:
 			frame_time = Time.get_ticks_msec()
 			for record in message.get("controllers", []): frames[str(record.get("controller", ""))] = record
 		"welcome":
-			send({"type": "declare_settings", "settings": [
-				{"key": "seconds", "label": "Match length", "kind": "number", "default": 120, "min": 60, "max": 300},
-				{"key": "matchup", "label": "Matchup (next match)", "kind": "choice", "default": "Auto", "options": ["Auto", "1v1", "2v2", "3v3"]}]})
+			send({"type": "declare_settings", "settings": preload("res://src/settings.gd").SPECS})
 	command.emit(message)
 
 func update_profiles(players: Array) -> void:

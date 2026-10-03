@@ -124,3 +124,7 @@ are excluded. The current release targets Windows x86-64.
 The five-second preview is captured with `tools/capture_preview.gd`: three staged
 setups using the real game simulation, AI, shot and tackle mechanics. It is
 bot-driven gameplay, not footage of a human match. See the harness for seeds.
+
+## Assistant controls
+
+See [GameNight settings](docs/gamenight-settings.md) for all supported tweaks, their ranges and when they apply. The phone and lobby assistant discover these controls automatically from the running game.
