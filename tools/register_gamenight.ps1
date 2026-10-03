@@ -9,17 +9,14 @@ if (Test-Path -LiteralPath $goalLocalFile) {
     Copy-Item -LiteralPath $goalLocalFile -Destination (Join-Path $goalRoot 'build/local-games-before-ballkickers.json')
     $goalEntries = @(Get-Content -LiteralPath $goalLocalFile -Raw | ConvertFrom-Json | Where-Object { $_.id -notin @('ballkickers', 'ballkickers-2v2', 'ballkickers-3v3', 'goal-rush', 'goal-rush-2v2', 'goal-rush-3v3') })
 }
-foreach ($goalTeamSize in 1..3) {
-$goalMode = "${goalTeamSize}v${goalTeamSize}"
 $goalEntries += [ordered]@{
-    id=$(if ($goalTeamSize -eq 1) { 'ballkickers' } else { "ballkickers-$goalMode" })
-    title="Ballkickers $goalMode (Local)"; tagline=$(if ($goalTeamSize -eq 1) { 'Two units per controller. Left stick + LB / right stick + RB.' } else { "$goalMode football. One unit per controller. Bots fill empty places." })
-    color='#ff7547'; emoji='⚽'; players="1-$($goalTeamSize * 2) players"; min_players=1; max_players=($goalTeamSize * 2); best_players=($goalTeamSize * 2)
+    id='ballkickers'
+    title='Ballkickers'; tagline='Fast party football. Teams adapt to your party; bots fill empty places.'
+    color='#ff7547'; emoji='⚽'; players='1-6 players'; min_players=1; max_players=6; best_players=4
     screenshot=(Join-Path $goalRoot 'assets/gameplay.png')
     cover=(Join-Path $goalRoot 'assets/cover.png')
     icon=(Join-Path $goalRoot 'assets/icon.png')
-    launch=@{command=$goalBinary; args=@('--position','-30000,-30000','--',"--teams=$goalTeamSize"); cwd=(Join-Path $goalRoot 'build')}
-}
+    launch=@{command=$goalBinary; args=@('--position','-30000,-30000'); cwd=(Join-Path $goalRoot 'build')}
 }
 [System.IO.File]::WriteAllText($goalLocalFile,(ConvertTo-Json -InputObject @($goalEntries) -Depth 12),(New-Object System.Text.UTF8Encoding $false))
 Write-Output "Registered Ballkickers in $goalLocalFile"

@@ -70,11 +70,12 @@ athlete is never taken over. LB / Space still switches manually off the ball.
 
 `tools/register_gamenight.ps1` adds this local build without replacing other
 local games. Restart GameNight to refresh the local shelf.
-The published GameNight entry automatically selects 1v1 for one/two humans,
+Both local and published registrations use one **Ballkickers** entry, which
+automatically selects 1v1 for one/two humans,
 2v2 for three/four, or 3v3 for five/six. The party can override this using the
 Matchup setting; changes apply to the next match.
-It registers separate **Ballkickers 1v1, 2v2 and 3v3 (Local)** entries, sharing the
-latest build. The game adapter supports six human seats; the current GameNight
+The registration script removes legacy mode-specific entries and uses the
+latest build without forcing a team size. The game adapter supports six human seats; the current GameNight
 lobby exposes only four. Consequently, 3v3 can currently launch there with bots
 in the remaining places, but six humans require a host with six-seat support.
 Windows XInput also limits conventional XInput controllers to four.
