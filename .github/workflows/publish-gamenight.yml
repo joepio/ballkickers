@@ -29,5 +29,5 @@ jobs:
           file: package/ballkickers-windows.zip
           platform: windows
           entrypoint: Ballkickers.exe
-          version: ci-${{ github.event.workflow_run.head_sha }}-${{ github.event.workflow_run.run_attempt }}
+          version: ci-${{ github.event.workflow_run.head_sha }}-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
           channel: preview
