@@ -68,6 +68,12 @@ const SPECS = [
     "default": true
   },
   {
+    "key": "replays",
+    "label": "Goal replays (next goal)",
+    "kind": "toggle",
+    "default": true
+  },
+  {
     "key": "chaos",
     "label": "Football chaos events (live)",
     "kind": "choice",
@@ -107,6 +113,7 @@ func apply_live(sim: RefCounted) -> void:
 	for key in ["run_speed", "shot_power", "ball_friction", "keeper_speed", "power_charge"]:
 		sim.set(key, values[key] / 100.0)
 	sim.super_shots = values.super_shots
+	sim.replays = values.replays
 	sim.chaos.level = CHAOS_LEVELS.find(values.chaos)
 
 

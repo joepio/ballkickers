@@ -12,6 +12,7 @@ var ball_friction := 1.0
 var keeper_speed := 1.0
 var power_charge := 1.0
 var super_shots := true
+var replays := true
 var team_size := 1
 var half_x := HALF_X
 var half_z := HALF_Z
@@ -359,7 +360,7 @@ func goal_scored(team: int, at = null) -> void:
 	owner = -1
 	ball_velocity = Vector3.ZERO
 	power[1 - team] = minf(100, power[1 - team] + 18)
-	events.append({"type": "goal", "pos": ball if at == null else at, "team": team})
+	events.append({"type": "goal", "pos": ball if at == null else at, "team": team, "bonus": at != null})
 
 func finish() -> void:
 	phase = "result"

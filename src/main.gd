@@ -8,6 +8,8 @@ var sim = Match.new()
 var stadium = Stadium.new()
 var hud = Hud.new()
 var chaos_view = preload("res://src/chaos_view.gd").new()
+var replay = preload("res://src/replay.gd").new()
+var replay_pending := false
 var party = Party.new()
 var camera := Camera3D.new()
 var athletes: Array = []
@@ -138,7 +140,14 @@ func configure_managed_matchup() -> void:
 		var count: int = party.human_seats().size()
 		team_size = 1 if count <= 2 else (2 if count <= 4 else 3)
 
+func reset_replay() -> void:
+	if replay.active and not replay.saved.is_empty(): replay.restore(sim)
+	replay.active = false
+	replay.clear()
+	replay_pending = false
+
 func start_match() -> void:
+	reset_replay()
 	if party.managed:
 		configure_managed_matchup()
 		humans = party.human_seats().size()
@@ -166,6 +175,10 @@ func start_match() -> void:
 func _physics_process(dt: float) -> void:
 	if party.managed and not host_active: return
 	if paused: return
+	if replay.active:
+		replay.advance(sim, dt, replay_event)
+		if not replay.active: hit_stop = 0.0
+		return
 	if hit_stop > 0:
 		hit_stop = maxf(0, hit_stop - dt)
 		return
@@ -181,13 +194,20 @@ func _physics_process(dt: float) -> void:
 				if controls[h].get("switch", false):
 					sim.switch_player(h)
 					apply_profiles()
+	var live: bool = sim.phase == "play"
 	sim.step(dt, controls)
+	if sim.phase == "kickoff": replay.clear()
+	elif live and not menu: replay.record(sim)
 	if not menu:
 		for event in sim.events: handle_event(event)
 	if sim.phase == "result":
 		result_time += dt
 		if menu: sim.setup(0, false, randi(), 120, dual_stick, team_size)
 		elif party.managed and result_time > 9: start_match()
+	# Roll the replay once the celebration has had its moment.
+	if replay_pending and sim.phase == "goal" and sim.phase_time < 1.0:
+		replay_pending = false
+		if sim.replays and not menu and replay.start(sim): play_sound("whistle")
 
 func read_control(h: int) -> Dictionary:
 	var move := Vector2.ZERO
@@ -298,11 +318,18 @@ func _process(dt: float) -> void:
 			update_effects(dt)
 		stadium.crowd.update(dt, menu or (sim.phase == "play" and not sim.chaos.active() and hype_free()))
 	var factor := Match.pitch_scale(team_size)
-	camera.size = 33 * factor
-	var target_x := -9.0 * factor if menu else 0.0
+	var view_size := 33.0 * factor
+	var focus := Vector2(-9.0 * factor if menu else 0.0, -1)
+	var rate := 5.0
+	if replay_showing():
+		# Broadcast close-up that follows the ball.
+		view_size = 19.0 * factor
+		focus = Vector2(clampf(sim.ball.x, -sim.half_x + 13, sim.half_x - 13), clampf(sim.ball.z - 1, -sim.half_z + 6, sim.half_z - 8))
+		rate = 7.0
+	camera.size = lerpf(camera.size, view_size, 1 - exp(-dt * rate))
 	var offset := Vector3(sin(run_time * 67) * shake * .12, 0, cos(run_time * 79) * shake * .1)
-	camera.position = camera.position.lerp(Vector3(target_x, 30 * factor, 31 * factor) + offset, 1 - exp(-dt * 5))
-	camera.look_at(Vector3(camera.position.x, 0, -1) + offset)
+	camera.position = camera.position.lerp(Vector3(focus.x, 30 * factor, 31 * factor + focus.y + 1) + offset, 1 - exp(-dt * rate))
+	camera.look_at(Vector3(camera.position.x, 0, camera.position.z - 31 * factor - 1) + offset)
 	hud.queue_redraw()
 	if not capture_done and not capture_path.is_empty() and run_time >= capture_at:
 		capture_done = true
@@ -381,7 +408,7 @@ func update_visuals(dt: float) -> void:
 	var shadow_scale := clampf(1 - sim.ball.y * .09, .3, 1)
 	ball_shadow.scale = Vector3(shadow_scale, .015, shadow_scale)
 	trail_clock -= dt
-	if sim.owner < 0 and sim.ball_velocity.length() > 12 and trail_clock <= 0 and sim.phase == "play":
+	if sim.owner < 0 and sim.ball_velocity.length() > 12 and trail_clock <= 0 and sim.phase in ["play", "replay"]:
 		trail_clock = .024
 		var entry: Dictionary = trail[trail_index]
 		trail_index = (trail_index + 1) % trail.size()
@@ -437,6 +464,13 @@ func express(body: Node3D, mood: String, t: float, kicking: bool) -> void:
 	body.get_node("BrowL").position.y = 1.86 + (.04 if mood in ["cheer", "hurt"] else 0.0)
 	body.get_node("BrowR").position.y = body.get_node("BrowL").position.y
 
+func replay_showing() -> bool:
+	return replay.active and replay.cursor > 0 and not replay.saved.is_empty()
+
+func replay_event(event: Dictionary) -> void:
+	# Re-fire the moment's effects; the goal brings the crowd up a second time.
+	handle_event(event)
+
 func handle_event(event: Dictionary) -> void:
 	var type: String = event.type
 	var color: Color = Stadium.ORANGE if event.get("team", 0) == 0 else Stadium.BLUE
@@ -476,6 +510,7 @@ func handle_event(event: Dictionary) -> void:
 			play_sound("hit")
 			impact_pause(.050)
 		"goal":
+			if sim.phase == "goal": replay_pending = true
 			stadium.crowd.event("goal", event.team)
 			burst(event.pos + Vector3.UP * 2, color, 65, 18)
 			burst(Vector3(0, 3, -4), Color("ffce56"), 45, 13)
@@ -567,6 +602,10 @@ func _input(event: InputEvent) -> void:
 		capture_path = "res://captures/gameplay.png"
 		capture.call_deferred()
 	if party.managed and not host_active: return
+	if replay.active and not menu:
+		if key in [KEY_ENTER, KEY_SPACE, KEY_ESCAPE, KEY_Q, KEY_J, KEY_CTRL] or button in [JOY_BUTTON_A, JOY_BUTTON_START, JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_RIGHT_SHOULDER]:
+			replay.skip()
+		return
 	if menu:
 		if key in [KEY_UP, KEY_W] or button == JOY_BUTTON_DPAD_UP: menu_selection = posmod(menu_selection - 1, 6)
 		if key in [KEY_DOWN, KEY_S] or button == JOY_BUTTON_DPAD_DOWN: menu_selection = (menu_selection + 1) % 6
@@ -600,6 +639,7 @@ func _input(event: InputEvent) -> void:
 		paused = not paused
 		for player in sound_players: player.stream_paused = paused
 	if paused and not party.managed and (key == KEY_TAB or button == JOY_BUTTON_Y):
+		reset_replay()
 		menu = true
 		paused = false
 		sim.setup(0, false, randi(), 120, dual_stick, team_size)
@@ -631,6 +671,7 @@ func adjust_menu(delta: int) -> void:
 func on_party_command(message: Dictionary) -> void:
 	match message.get("type", ""):
 		"prepare":
+			reset_replay()
 			host_active = false
 			menu = false
 			paused = true
@@ -659,6 +700,9 @@ func on_party_command(message: Dictionary) -> void:
 				var buttons: int = int(record.get("buttons", 0))
 				var old: int = managed_buttons.get(token, 0)
 				managed_buttons[token] = buttons
+				if replay.active and buttons & ~old & ((1 << 0) | (1 << 4) | (1 << 5) | (1 << 7)):
+					replay.skip()
+					continue
 				if not buttons & (1 << 6) and Time.get_ticks_msec() > overlay_after: overlay_ready = true
 				if buttons & (1 << 7) and not old & (1 << 7):
 					if sim.phase == "result": start_match()

@@ -176,6 +176,7 @@ func _draw() -> void:
 		centered("TIME OUT", 408, 62)
 		centered("START / ESC   RESUME", 475, 23, GOLD)
 		centered("Y / TAB   BACK TO MENU", 521, 17)
+	draw_replay(s)
 	if game.show_stats:
 		text("%d FPS  ·  %d DRAWS" % [Engine.get_frames_per_second(), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)], Vector2(25, 38), 17, INK)
 
@@ -212,3 +213,56 @@ func draw_menu() -> void:
 	text("A / ENTER  START     ↑ ↓  SELECT     ← →  CHANGE", Vector2(65, 880), 14, GOLD)
 	panel(Rect2(1235, 33, 323, 40), INK, 20)
 	text("SUNSET SOCIAL CLUB", Vector2(1262, 60), 18, CREAM, true)
+
+func draw_replay(s) -> void:
+	var r = game.replay
+	if not r.active: return
+	var color: Color = ORANGE if r.team == 0 else BLUE
+	if game.replay_showing():
+		var scale := Vector2(size.x / 1600.0, size.y / 900.0)
+		# Telestrator: the ball's recent path, chalked over the pitch.
+		var path := PackedVector2Array()
+		for point in r.ball_path(50): path.append(game.camera.unproject_position(Vector3(point.x, .15, point.z)) / scale)
+		if path.size() > 1:
+			draw_polyline(path, Color(INK, .5), 11, true)
+			draw_polyline(path, GOLD, 6, true)
+		draw_rect(Rect2(0, 0, 1600, 900), Color(1, .93, .78, .05))
+		# Broadcast bug.
+		var tilt := Transform2D(-.06, Vector2(46, 46))
+		draw_set_transform_matrix(Transform2D.IDENTITY.scaled(Vector2(scale_factor, size.y / 900)) * tilt)
+		panel(Rect2(0, 0, 228, 58), INK, 14)
+		draw_circle(Vector2(30, 29), 9, Color("ff4a5c") if fmod(game.run_time, 1.0) < .6 else Color("7a2a33"))
+		text("REPLAY", Vector2(50, 43), 34, CREAM, true)
+		if r.slow_motion():
+			panel(Rect2(14, 62, 200, 32), GOLD, 10)
+			text("SUPER SLO-MO", Vector2(30, 86), 20, INK, true)
+		draw_set_transform(Vector2.ZERO, 0, Vector2(scale_factor, size.y / 900))
+		# Lower third: who, what the commentator thinks, and the speed gun.
+		if r.cursor > 25:
+			var slide := clampf((r.cursor - 25) / 18.0, 0, 1)
+			var x := lerpf(-760, 40, ease(slide, .3))
+			panel(Rect2(x, 690, 720, 104), INK, 18)
+			panel(Rect2(x, 690, 18, 104), color, 9)
+			text("GOAL  ·  " + r.scorer, Vector2(x + 38, 732), 32, color, true)
+			text(r.caption, Vector2(x + 38, 772), 21, CREAM)
+			panel(Rect2(x + 760, 690, 190, 104), color, 18)
+			text("SHOT SPEED", Vector2(x + 782, 724), 15, INK, true)
+			text("%d KM/H" % r.speed_kmh, Vector2(x + 782, 770), 36, INK, true)
+		panel(Rect2(1340, 30, 230, 44), Color(INK, .85), 22)
+		text("A / START  SKIP  ▸", Vector2(1364, 59), 18, GOLD, true)
+	var w: float = r.wipe()
+	if w >= 0:
+		# Classic replay sting: team stripes sweep across and swap the picture.
+		var offset := lerpf(-2400, 2200, w)
+		var stripes := [[ORANGE, -260], [CREAM, -120], [BLUE, 0], [INK, 120]]
+		for stripe in stripes:
+			var o: float = offset + stripe[1]
+			var c: Color = stripe[0]
+			if stripe[0] == ORANGE and r.team == 1: c = BLUE
+			elif stripe[0] == BLUE and r.team == 1: c = ORANGE
+			var width := 2000.0 if stripe[0] == INK else 140.0
+			draw_colored_polygon(PackedVector2Array([Vector2(o, 0), Vector2(o + width, 0), Vector2(o + width - 300, 900), Vector2(o - 300, 900)]), c)
+		var cx := offset + 760
+		text("BALL", Vector2(cx - 210, 470), 110, CREAM, true)
+		text("KICKERS", Vector2(cx + 30, 470), 110, color, true)
+		text("ACTION REPLAY", Vector2(cx - 120, 540), 34, GOLD, true)

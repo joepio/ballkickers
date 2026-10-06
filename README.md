@@ -80,6 +80,18 @@ jumping and waving for their own team's goals, slumping after a goal against,
 rising for shots, saves and chaos, and a Mexican wave when play is calm in
 midfield. A few superfans hold signs ("HI MUM!") or wave big flags.
 
+## Goal replays
+
+After the celebration every goal gets a TV-style action replay: a team-stripe
+wipe, a REPLAY bug, a close-up camera that follows the ball, the build-up in
+real time and the finish in super slo-mo, a chalked telestrator line of the ball's
+path, a lower third with the scorer, a commentary cliché that fits what happened
+(own goal, power shot, rebound, keeper error, long range, the beach ball) and a
+speed-gun reading, then a hold on the net. A, Start or a shoulder button (Enter,
+Space, Esc, Q or Ctrl on keyboard) skips it. The GameNight `replays` setting
+turns them off. Replays only re-render recorded snapshots; the match state is
+restored exactly afterwards (`tests/replay.gd`).
+
 ## Football chaos
 
 Every so often the match is interrupted by something that has nothing to do with
