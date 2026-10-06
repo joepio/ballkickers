@@ -36,7 +36,7 @@ func _initialize() -> void:
 		if s.phase == "replay" and s.ball != before[0]: moved = true
 		t += 1.0 / 60
 	check(moved and "goal" in seen, "playback moves the ball and re-fires the goal")
-	check(t > 3 and t < 9, "replay runs a few seconds (%.1fs)" % t)
+	check(t > 3 and t < 15, "replay runs a few seconds (%.1fs)" % t)
 	check([s.ball, s.players[0].pos, s.keepers[1].pos, s.phase, s.phase_time, s.score] == before, "match state is restored exactly")
 	check(until_goal(s, r), "match continues to another goal after the replay")
 	check(r.start(s), "second replay starts")

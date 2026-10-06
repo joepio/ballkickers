@@ -30,6 +30,10 @@ var team := 0
 var caption := ""
 var speed_kmh := 0
 var skipped := false
+## Reaction shots after the replay: the scorer, the coaches, the fans.
+var reactions: Array = []
+var scorer_index := -1
+var own_goal := false
 
 func clear() -> void:
 	frames.clear()
@@ -53,6 +57,7 @@ func start(sim) -> bool:
 		"elapsed": sim.elapsed, "phase": sim.phase, "extra": sim.chaos.extra.duplicate(true)}
 	team = sim.events_team
 	describe(sim)
+	plan_reactions()
 	active = true
 	skipped = false
 	stage = "in"
@@ -69,6 +74,8 @@ func describe(sim) -> void:
 		for e in f.events: types.append(e.type)
 	speed_kmh = int(top_speed * 2.6)
 	var touch: int = sim.last_touch
+	scorer_index = -1
+	own_goal = false
 	var kind := "plain"
 	var bonus := false
 	for e in clip[-1].events: if e.type == "goal" and e.get("bonus", false): bonus = true
@@ -78,8 +85,10 @@ func describe(sim) -> void:
 	elif touch >= 0 and sim.players[touch].team != team:
 		scorer = str(sim.players[touch].name)
 		kind = "own"
+		own_goal = true
 	else:
 		scorer = str(sim.players[touch].name) if touch >= 0 else "SOMEBODY"
+		scorer_index = touch
 		var shot_from := INF
 		for f in clip:
 			for e in f.events:
@@ -91,6 +100,33 @@ func describe(sim) -> void:
 		elif "hit" in types: kind = "tackle"
 	var options: Array = LINES[kind]
 	caption = options[randi() % options.size()]
+
+func plan_reactions() -> void:
+	# Not every replay gets every cutaway, so they keep surprising.
+	reactions.clear()
+	if scorer_index >= 0: reactions.append({"kind": "scorer", "time": 1.9})
+	if own_goal: reactions.append({"kind": "coach_sad", "time": 1.6})
+	var extra: Array = ["coach", "fans"]
+	extra.shuffle()
+	if randf() < .75 or reactions.is_empty(): reactions.append({"kind": extra[0], "time": 1.6})
+	if randf() < .3: reactions.append({"kind": extra[1], "time": 1.4})
+	if not own_goal and randf() < .35: reactions.append({"kind": "coach_sad", "time": 1.3})
+
+## The camera shot the broadcast is on right now.
+func shot() -> String:
+	match stage:
+		"play": return "goalcam" if cursor >= clip.size() - SLOW_FRAMES else "wide"
+		"hold": return "goalcam"
+		"react": return reactions[reaction_index()].kind
+		"out": return "react_end" if not reactions.is_empty() else "goalcam"
+	return "wide"
+
+func reaction_index() -> int:
+	var t := stage_time
+	for i in reactions.size():
+		t -= reactions[i].time
+		if t < 0: return i
+	return reactions.size() - 1
 
 func skip() -> void:
 	if active and stage != "out":
@@ -123,6 +159,17 @@ func advance(sim, dt: float, on_event: Callable) -> bool:
 				stage_time = 0.0
 		"hold":
 			if stage_time >= .8:
+				stage = "react" if not reactions.is_empty() else "out"
+				stage_time = 0.0
+				if stage == "react":
+					apply(sim, clip.size() - 1)
+					sim.phase = "goal"
+		"react":
+			# The goal frame stays frozen in place while everyone celebrates.
+			sim.elapsed += dt
+			var total := 0.0
+			for r in reactions: total += r.time
+			if stage_time >= total:
 				stage = "out"
 				stage_time = 0.0
 		"out":

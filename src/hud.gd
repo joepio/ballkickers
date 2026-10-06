@@ -86,7 +86,7 @@ func _draw() -> void:
 	# World-anchored player indicators and stamina.
 	for i in s.players.size():
 		var p: Dictionary = s.players[i]
-		if p.human < 0: continue
+		if p.human < 0 or game.replay_showing(): continue
 		var position: Vector2 = game.camera.unproject_position(Vector3(p.pos.x, 2.85, p.pos.y))
 		position /= Vector2(size.x / 1600.0, size.y / 900.0)
 		var color: Color = ORANGE if p.team == 0 else BLUE
@@ -146,7 +146,8 @@ func _draw() -> void:
 		text("HOLD X: CHARGE", Vector2(755, 867), 14)
 		text("RT  SPRINT     LB  SWITCH", Vector2(895, 867), 15)
 	text("BALLKICKERS", Vector2(30, 870), 18, CREAM, true)
-	if s.phase == "kickoff":
+	if game.replay_showing(): pass
+	elif s.phase == "kickoff":
 		centered("GET READY", 369, 21, GOLD)
 		centered(str(maxi(1, int(ceil(s.phase_time)))), 479, 100)
 	elif s.phase == "goal":
@@ -222,7 +223,11 @@ func draw_replay(s) -> void:
 		var scale := Vector2(size.x / 1600.0, size.y / 900.0)
 		# Telestrator: the ball's recent path, chalked over the pitch.
 		var path := PackedVector2Array()
-		for point in r.ball_path(50): path.append(game.camera.unproject_position(Vector3(point.x, .15, point.z)) / scale)
+		var view: Camera3D = get_viewport().get_camera_3d()
+		if r.stage in ["play", "hold"]:
+			for point in r.ball_path(50):
+				var world := Vector3(point.x, .15, point.z)
+				if not view.is_position_behind(world): path.append(view.unproject_position(world) / scale)
 		if path.size() > 1:
 			draw_polyline(path, Color(INK, .5), 11, true)
 			draw_polyline(path, GOLD, 6, true)

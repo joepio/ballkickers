@@ -83,11 +83,16 @@ midfield. A few superfans hold signs ("HI MUM!") or wave big flags.
 ## Goal replays
 
 After the celebration every goal gets a TV-style action replay: a team-stripe
-wipe, a REPLAY bug, a close-up camera that follows the ball, the build-up in
-real time and the finish in super slo-mo, a chalked telestrator line of the ball's
-path, a lower third with the scorer, a commentary cliché that fits what happened
-(own goal, power shot, rebound, keeper error, long range, the beach ball) and a
-speed-gun reading, then a hold on the net. A, Start or a shoulder button (Enter,
+wipe, a REPLAY bug, a low broadcast camera that follows the build-up in real
+time, a cut to the camera behind the net for the finish in super slo-mo, a
+chalked telestrator line of the ball's path, a lower third with the scorer, a
+commentary cliché that fits what happened (own goal, power shot, rebound, keeper
+error, long range, the beach ball) and a speed-gun reading, then a hold on the
+net. Then come a few cutaways, mixed differently each time: the scorer jumping
+straight into the lens, the winning coach going wild on the touchline, the other
+coach with hands on head, and the scoring team's stand. The two coaches (suit,
+team tie and cap, one moustache, one pair of glasses) pace the touchline during
+play and point at the ball when it comes near. A, Start or a shoulder button (Enter,
 Space, Esc, Q or Ctrl on keyboard) skips it. The GameNight `replays` setting
 turns them off. Replays only re-render recorded snapshots; the match state is
 restored exactly afterwards (`tests/replay.gd`).

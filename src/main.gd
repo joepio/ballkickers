@@ -12,6 +12,10 @@ var replay = preload("res://src/replay.gd").new()
 var replay_pending := false
 var party = Party.new()
 var camera := Camera3D.new()
+## Perspective broadcast camera for replay close-ups and reaction shots.
+var cine := Camera3D.new()
+var cine_shot := ""
+var coaches: Array = []
 var athletes: Array = []
 var keeper_nodes: Array = []
 var ball_node: Node3D
@@ -86,6 +90,7 @@ func _ready() -> void:
 		keeper.scale = Vector3.ONE * 1.23
 		keeper.get_node("Marker").visible = false
 		keeper_nodes.append(keeper)
+	for team in 2: coaches.append(stadium.make_coach(team))
 	ball_node = stadium.make_ball()
 	chaos_view.stadium = stadium
 	chaos_view.game = self
@@ -97,6 +102,9 @@ func _ready() -> void:
 		mote.visible = false
 		trail.append({"node": mote, "life": 0.0})
 	add_child(camera)
+	add_child(cine)
+	cine.fov = 34
+	cine.far = 220
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	camera.size = 33
 	camera.far = 160
@@ -176,6 +184,8 @@ func _physics_process(dt: float) -> void:
 	if party.managed and not host_active: return
 	if paused: return
 	if replay.active:
+		# Replayed impacts freeze the picture too, but only briefly.
+		hit_stop = maxf(0, hit_stop - dt)
 		replay.advance(sim, dt, replay_event)
 		if not replay.active: hit_stop = 0.0
 		return
@@ -321,11 +331,10 @@ func _process(dt: float) -> void:
 	var view_size := 33.0 * factor
 	var focus := Vector2(-9.0 * factor if menu else 0.0, -1)
 	var rate := 5.0
-	if replay_showing():
-		# Broadcast close-up that follows the ball.
-		view_size = 19.0 * factor
-		focus = Vector2(clampf(sim.ball.x, -sim.half_x + 13, sim.half_x - 13), clampf(sim.ball.z - 1, -sim.half_z + 6, sim.half_z - 8))
-		rate = 7.0
+	if replay_showing(): direct_replay(dt)
+	elif not camera.current:
+		camera.current = true
+		cine_shot = ""
 	camera.size = lerpf(camera.size, view_size, 1 - exp(-dt * rate))
 	var offset := Vector3(sin(run_time * 67) * shake * .12, 0, cos(run_time * 79) * shake * .1)
 	camera.position = camera.position.lerp(Vector3(focus.x, 30 * factor, 31 * factor + focus.y + 1) + offset, 1 - exp(-dt * rate))
@@ -391,6 +400,13 @@ func update_visuals(dt: float) -> void:
 			if p.team == sim.events_team:
 				celebrate(body, i, sim.elapsed)
 				mood = "cheer"
+				if i == replay.scorer_index and replay.stage == "react":
+					# The close-up: big jumps, fists up, straight into the lens.
+					var to_lens := cine.global_position - node.global_position
+					body.rotation = Vector3(0, atan2(to_lens.x, to_lens.z), 0)
+					body.position.y = absf(sin(sim.elapsed * 7)) * .9
+					body.get_node("ArmL").rotation = Vector3(0, 0, -2.7 + sin(sim.elapsed * 14) * .25)
+					body.get_node("ArmR").rotation = Vector3(0, 0, 2.7 - sin(sim.elapsed * 14) * .25)
 			else:
 				# Heads down for the team that conceded.
 				body.rotation.x = lerpf(body.rotation.x, .5, 1 - exp(-dt * 6))
@@ -401,6 +417,7 @@ func update_visuals(dt: float) -> void:
 		stars.visible = p.stun > .12
 		stars.rotation.y = run_time * 7
 	chaos_view.update(sim, dt)
+	update_coaches(dt)
 	ball_node.position = ball_node.position.lerp(sim.ball, 1 - exp(-dt * 36))
 	ball_node.rotate_x(sim.ball_velocity.z * dt * 1.6)
 	ball_node.rotate_z(-sim.ball_velocity.x * dt * 1.6)
@@ -463,6 +480,97 @@ func express(body: Node3D, mood: String, t: float, kicking: bool) -> void:
 	body.get_node("BrowR").rotation.z = tilt
 	body.get_node("BrowL").position.y = 1.86 + (.04 if mood in ["cheer", "hurt"] else 0.0)
 	body.get_node("BrowR").position.y = body.get_node("BrowL").position.y
+
+func direct_replay(dt: float) -> void:
+	# Pick a camera position per shot; cut on a new shot, glide within one.
+	var shot: String = replay.shot()
+	if shot == "react_end": return
+	var side := 1.0 if replay.team == 0 else -1.0
+	var ball: Vector3 = sim.ball
+	var eye := Vector3.ZERO
+	var target := Vector3.ZERO
+	match shot:
+		"wide":
+			eye = Vector3(ball.x * .85, 8.5, sim.half_z + 13)
+			target = Vector3(ball.x, .8, ball.z)
+		"goalcam":
+			# Behind the net, looking back up the pitch at the strike.
+			eye = Vector3(side * (sim.half_x + 7.5), 3.0, clampf(ball.z * .35, -2.5, 2.5))
+			target = Vector3(ball.x, .9, ball.z)
+		"scorer":
+			var p: Dictionary = sim.players[replay.scorer_index]
+			# From the pitch side, so the crowd behind the goal is the backdrop.
+			eye = clear_view(replay.scorer_index, p.pos, side)
+			target = Vector3(p.pos.x, 1.9, p.pos.y)
+		"coach", "coach_sad":
+			var coach: Node3D = coaches[replay.team if shot == "coach" else 1 - replay.team]
+			# From the pitch side, so the stand fills the background.
+			eye = coach.position + Vector3(-.9, 2.0, -4.8)
+			target = coach.position + Vector3(0, 1.75 if shot == "coach" else 1.5, 0)
+		"fans":
+			var f := Match.pitch_scale(team_size)
+			eye = Vector3(-side * 16 * f, 5.5, -2 * f)
+			target = Vector3(-side * 27 * f, 2.2, -8 * f)
+	if shot != cine_shot or not cine.current:
+		cine_shot = shot
+		cine.current = true
+		cine.position = eye
+		cine.look_at(target)
+	else:
+		cine.position = cine.position.lerp(eye, 1 - exp(-dt * 4))
+		var look := cine.global_transform.looking_at(target)
+		cine.global_transform = cine.global_transform.interpolate_with(look, 1 - exp(-dt * 6))
+
+func clear_view(index: int, at: Vector2, side: float) -> Vector3:
+	# Of a few close-up angles, take the one with nobody standing in the way.
+	var best := Vector3.ZERO
+	var best_gap := -1.0
+	for angle in [.45, -.45, .9, -.9, 0.0]:
+		var from := at + Vector2(-side * 5.0, 0).rotated(angle)
+		var gap := INF
+		for i in sim.players.size():
+			if i != index: gap = minf(gap, Geometry2D.get_closest_point_to_segment(sim.players[i].pos, from, at).distance_to(sim.players[i].pos))
+		for k in sim.keepers: gap = minf(gap, Geometry2D.get_closest_point_to_segment(k.pos, from, at).distance_to(k.pos))
+		if gap > best_gap + .3:
+			best_gap = gap
+			best = Vector3(from.x, 3.3, from.y)
+	return best
+
+func update_coaches(dt: float) -> void:
+	for team in coaches.size():
+		var coach: Node3D = coaches[team]
+		var home := (-1.0 if team == 0 else 1.0) * 6.5 * Match.pitch_scale(team_size)
+		var pace := home + sin(run_time * .45 + team * 2.0) * 2.2 + clampf(sim.ball.x * .12, -2, 2)
+		var target := Vector3(pace, 0, sim.half_z + 1.9)
+		if coach.position.distance_to(target) > 12: coach.position = target
+		var step := target - coach.position
+		coach.position = coach.position.lerp(target, 1 - exp(-dt * 2))
+		var body: Node3D = coach.get_node("Body")
+		var t := run_time * 9 + team
+		var walking := absf(step.x) > .15
+		body.rotation.y = lerp_angle(body.rotation.y, (PI / 2 * signf(step.x) if walking else PI) * 1.0, 1 - exp(-dt * 6))
+		body.position.y = 0.0
+		body.rotation.x = 0.0
+		var swing := sin(t) * (.5 if walking else 0.0)
+		body.get_node("LegL").rotation.x = swing
+		body.get_node("LegR").rotation.x = -swing
+		var arm_l := Vector3(-swing, 0, .1)
+		var arm_r := Vector3(swing, 0, -.1)
+		if sim.phase in ["goal", "result"]:
+			body.rotation.y = lerp_angle(body.rotation.y, PI, 1 - exp(-dt * 8))
+			if team == sim.events_team:
+				body.position.y = absf(sin(run_time * 9 + team)) * .7
+				arm_l = Vector3(0, 0, -2.6 + sin(run_time * 14) * .3)
+				arm_r = Vector3(0, 0, 2.6 - sin(run_time * 14) * .3)
+			else:
+				# Hands on head, looking at the floor.
+				body.rotation.x = .35
+				arm_l = Vector3(-2.3, 0, -.9)
+				arm_r = Vector3(-2.3, 0, .9)
+		elif absf(sim.ball.x - coach.position.x) < 8 and sim.phase == "play":
+			arm_r = Vector3(-1.4 + sin(run_time * 6) * .25, 0, -.3)
+		body.get_node("ArmL").rotation = arm_l
+		body.get_node("ArmR").rotation = arm_r
 
 func replay_showing() -> bool:
 	return replay.active and replay.cursor > 0 and not replay.saved.is_empty()

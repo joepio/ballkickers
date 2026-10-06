@@ -3,10 +3,12 @@ extends SceneTree
 ##   -- --chaos=dog --after=3 --out=/tmp/dog.png      a chaos event in progress
 ##   -- --goal=1.2 --out=/tmp/goal.png                 the celebration after a goal
 ##   -- --replay=4 --out=/tmp/replay.png               4 s into the goal replay
+## Set SEED=n to pick which reaction shots (scorer, coaches, fans) a replay gets.
 func _initialize() -> void:
 	run.call_deferred()
 
 func run() -> void:
+	seed(int(OS.get_environment("SEED")) if OS.has_environment("SEED") else 7)
 	var kind := ""
 	var after := 3.0
 	var out := "user://capture.png"

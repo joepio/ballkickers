@@ -314,6 +314,48 @@ func add_hairstyle(body: Node3D, style: int, hair: Color) -> void:
 				for n in 3: sphere(body, Vector3(side * (.12 + n * .1), 2.02 - n * .07, -.1 - n * .05), .14, hair)
 			box(body, Vector3(0, 1.77, .45), Vector3(.1, .02, .02), INK).set_meta("dye", false)
 
+func make_coach(team: int) -> Node3D:
+	# Touchline managers: suit, team tie and cap, one moustache, one pair of glasses.
+	var color: Color = ORANGE if team == 0 else BLUE
+	var root := Node3D.new()
+	root.name = "Coach%d" % team
+	add_child(root)
+	root.scale = Vector3.ONE * 1.2
+	var body := Node3D.new()
+	body.name = "Body"
+	root.add_child(body)
+	var suit := Color("2a3a4f") if team == 0 else Color("3b2f4a")
+	capsule(body, Vector3(0, .95, 0), .42, 1.1, suit)
+	box(body, Vector3(0, 1.12, .36), Vector3(.22, .5, .06), CREAM)
+	box(body, Vector3(0, 1.08, .4), Vector3(.08, .42, .04), color)
+	capsule(body, Vector3(0, .5, 0), .36, .5, suit.darkened(.2))
+	sphere(body, Vector3(0, 1.72, 0), .44, Color("f2c29b"))
+	var cap := sphere(body, Vector3(0, 1.98, .02), .42, color)
+	cap.scale = Vector3(1.05, .45, 1.08)
+	box(body, Vector3(0, 1.93, .42), Vector3(.5, .05, .26), color.darkened(.25))
+	for side in [-1, 1]:
+		var eye := sphere(body, Vector3(side * .15, 1.76, .4), .055, INK)
+		eye.scale = Vector3(.9, 1.4, .6)
+		var leg := Node3D.new()
+		leg.name = "LegL" if side == -1 else "LegR"
+		leg.position = Vector3(side * .22, .48, 0)
+		body.add_child(leg)
+		capsule(leg, Vector3(0, -.2, 0), .15, .5, suit.darkened(.2))
+		capsule(leg, Vector3(0, -.42, .1), .17, .45, INK).rotation.x = PI / 2
+		var arm := Node3D.new()
+		arm.name = "ArmL" if side == -1 else "ArmR"
+		arm.position = Vector3(side * .46, 1.25, 0)
+		body.add_child(arm)
+		capsule(arm, Vector3(side * .04, -.18, 0), .14, .48, suit)
+		sphere(arm, Vector3(side * .08, -.4, 0), .16, Color("f2c29b"))
+		if team == 1:
+			var lens := ring(body, Vector3(side * .15, 1.76, .43), .09, .02, INK)
+			lens.rotation.x = PI / 2
+	if team == 0: box(body, Vector3(0, 1.62, .43), Vector3(.36, .09, .07), Color("5a3a1e"))
+	var board := box(body.get_node("ArmL"), Vector3(-.05, -.45, .2), Vector3(.36, .48, .04), CREAM)
+	board.rotation.x = -.5
+	return root
+
 func make_ball() -> Node3D:
 	var root := Node3D.new()
 	add_child(root)
