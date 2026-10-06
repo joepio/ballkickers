@@ -7,6 +7,7 @@ var settings = preload("res://src/settings.gd").new()
 var sim = Match.new()
 var stadium = Stadium.new()
 var hud = Hud.new()
+var chaos_view = preload("res://src/chaos_view.gd").new()
 var party = Party.new()
 var camera := Camera3D.new()
 var athletes: Array = []
@@ -26,6 +27,8 @@ var managed_matchup := "Auto"
 var coop := false
 var dual_stick := true
 var match_seconds := 120
+var chaos_level := 1
+var chaos_force := ""
 var sound_enabled := true
 var devices: Array = []
 var previous: Dictionary = {}
@@ -66,6 +69,8 @@ func _ready() -> void:
 			humans = team_size * 2
 			team_override = true
 		elif arg == "--stats": show_stats = true
+		elif arg.begins_with("--chaos="): chaos_force = arg.trim_prefix("--chaos=")
+		elif arg.begins_with("--chaos-level="): chaos_level = clampi(int(arg.trim_prefix("--chaos-level=")), 0, 2)
 		elif arg == "--mute": sound_enabled = false
 		elif arg == "--fullscreen": DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	add_child(stadium)
@@ -80,6 +85,9 @@ func _ready() -> void:
 		keeper.get_node("Marker").visible = false
 		keeper_nodes.append(keeper)
 	ball_node = stadium.make_ball()
+	chaos_view.stadium = stadium
+	chaos_view.game = self
+	add_child(chaos_view)
 	ball_shadow = stadium.sphere(stadium, Vector3.ZERO, .46, Color("285e50"))
 	ball_shadow.scale.y = .015
 	for i in 20:
@@ -103,11 +111,13 @@ func _ready() -> void:
 	print("Ballkickers: ready; %d local controllers" % Input.get_connected_joypads().size())
 	add_child(audio)
 	sound_players = audio.players
+	sim.chaos.level = chaos_level
 	sim.setup(0, false, 725, 120, dual_stick, team_size)
 	sync_arena()
 	if demo:
 		menu = false
 		sim.setup(0, false, 725, 120, dual_stick, team_size)
+		sim.chaos.forced = chaos_force
 		sim.power = [100.0, 100.0]
 		camera.position = Vector3(0, 30, 31)
 		camera.look_at(Vector3(0, 0, -1))
@@ -140,6 +150,7 @@ func start_match() -> void:
 		humans = mini(humans, devices.size())
 	if dual_stick: humans = mini(humans, team_size * 2)
 	if coop: humans = mini(humans, team_size * 2)
+	if not party.managed: sim.chaos.level = chaos_level
 	sim.setup(0 if demo else humans, coop, int(Time.get_ticks_usec()) % 1000000, match_seconds, dual_stick, team_size)
 	sync_arena()
 	apply_profiles()
@@ -347,6 +358,7 @@ func update_visuals(dt: float) -> void:
 		else:
 			body.get_node("ArmL").rotation.z = .1
 			body.get_node("ArmR").rotation.z = -.1
+	chaos_view.update(sim, dt)
 	ball_node.position = ball_node.position.lerp(sim.ball, 1 - exp(-dt * 36))
 	ball_node.rotate_x(sim.ball_velocity.z * dt * 1.6)
 	ball_node.rotate_z(-sim.ball_velocity.x * dt * 1.6)
@@ -414,6 +426,28 @@ func handle_event(event: Dictionary) -> void:
 			notice = "NEXT GOAL WINS"
 			notice_time = 3.0
 			play_sound("whistle")
+		"chaos":
+			notice = event.text
+			notice_time = 2.6
+			shake = maxf(shake, .2)
+			play_sound("whistle")
+		"chaos_text":
+			notice = event.text
+			notice_time = 1.6
+		"chaos_kick":
+			burst(event.pos, Stadium.CREAM, 4, 3)
+			play_sound("pass")
+		"chaos_land": burst(event.pos, Color("ffde59"), 8, 4)
+		"chaos_boom":
+			burst(event.pos, Color("ffb347"), 30, 13)
+			burst(event.pos, Color("ff4a3d"), 18, 9)
+			burst(event.pos + Vector3.UP, Color("dfe6e8"), 14, 4)
+			shake = .75
+			play_sound("super")
+			impact_pause(.04)
+		"chaos_pop":
+			burst(event.pos, Color("ff5c6b"), 16, 6)
+			play_sound("hit")
 		"finish":
 			sim.events_team = event.team
 			play_sound("goal")
@@ -451,6 +485,7 @@ func clear_effects() -> void:
 	for e in effects: e.node.queue_free()
 	effects.clear()
 	for entry in trail: entry.life = 0.0
+	chaos_view.reset()
 
 func play_sound(name: String) -> void:
 	if not sound_enabled or menu or paused or (party.managed and not host_active): return
@@ -469,8 +504,8 @@ func _input(event: InputEvent) -> void:
 		capture.call_deferred()
 	if party.managed and not host_active: return
 	if menu:
-		if key in [KEY_UP, KEY_W] or button == JOY_BUTTON_DPAD_UP: menu_selection = posmod(menu_selection - 1, 5)
-		if key in [KEY_DOWN, KEY_S] or button == JOY_BUTTON_DPAD_DOWN: menu_selection = (menu_selection + 1) % 5
+		if key in [KEY_UP, KEY_W] or button == JOY_BUTTON_DPAD_UP: menu_selection = posmod(menu_selection - 1, 6)
+		if key in [KEY_DOWN, KEY_S] or button == JOY_BUTTON_DPAD_DOWN: menu_selection = (menu_selection + 1) % 6
 		if key in [KEY_LEFT, KEY_A] or button == JOY_BUTTON_DPAD_LEFT: adjust_menu(-1)
 		if key in [KEY_RIGHT, KEY_D] or button == JOY_BUTTON_DPAD_RIGHT: adjust_menu(1)
 		if key in [KEY_ENTER, KEY_SPACE] or button in [JOY_BUTTON_A, JOY_BUTTON_START]:
@@ -486,7 +521,7 @@ func _input(event: InputEvent) -> void:
 		if event is InputEventJoypadMotion and event.axis == JOY_AXIS_LEFT_Y:
 			var gate: int = previous.get("menu_axis", 0)
 			if absf(event.axis_value) > .65 and gate == 0:
-				menu_selection = posmod(menu_selection + (1 if event.axis_value > 0 else -1), 5)
+				menu_selection = posmod(menu_selection + (1 if event.axis_value > 0 else -1), 6)
 				previous["menu_axis"] = 1
 			elif absf(event.axis_value) < .3: previous["menu_axis"] = 0
 		if event is InputEventJoypadMotion and event.axis == JOY_AXIS_LEFT_X:
@@ -525,6 +560,9 @@ func adjust_menu(delta: int) -> void:
 		4:
 			sound_enabled = not sound_enabled
 			if not sound_enabled: audio.reset()
+		5:
+			chaos_level = posmod(chaos_level + delta, 3)
+			sim.chaos.level = chaos_level
 
 func on_party_command(message: Dictionary) -> void:
 	match message.get("type", ""):

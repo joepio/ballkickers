@@ -5,6 +5,7 @@ const HALF_Z = 12.0
 const GOAL_Z = 3.7
 const GOAL_HEIGHT = 3.1
 const RADIUS = 0.65
+const Chaos = preload("res://src/chaos.gd")
 var run_speed := 1.0
 var shot_power := 1.0
 var ball_friction := 1.0
@@ -37,6 +38,7 @@ var elapsed := 0.0
 var overtime := false
 var events: Array = []
 var stats := {"shots": 0, "passes": 0, "tackles": 0, "goals": 0, "supers": 0}
+var chaos = Chaos.new()
 
 static func pitch_scale(teams: int) -> float:
 	return sqrt(3.0) if teams >= 3 else 1.0
@@ -61,6 +63,7 @@ func setup(humans: int = 1, coop: bool = false, seed_value: int = 42, seconds: f
 	overtime = false
 	stats = {"shots": 0, "passes": 0, "tackles": 0, "goals": 0, "supers": 0}
 	stats["saves"] = 0
+	chaos.setup(seed_value)
 	for i in (4 if team_size == 1 else team_size * 2):
 		var team: int = i % 2
 		var role: int = i / 2
@@ -116,6 +119,7 @@ func kickoff(team: int) -> void:
 		players[taker].pos = Vector2(-1.0 if team == 0 else 1.0, 0)
 	phase = "kickoff"
 	phase_time = 2.2
+	chaos.clear()
 
 func step(dt: float, inputs: Dictionary = {}) -> void:
 	events.clear()
@@ -147,6 +151,7 @@ func step(dt: float, inputs: Dictionary = {}) -> void:
 	resolve_bodies()
 	update_keepers(dt)
 	move_ball(dt)
+	if phase == "play": chaos.step(self, dt)
 	if clock <= 0 and phase == "play":
 		if score[0] == score[1]:
 			if not overtime: events.append({"type": "overtime", "pos": ball})
@@ -175,7 +180,7 @@ func move_player(i: int, input: Dictionary, dt: float) -> void:
 		if p.charge > 0: speed *= .66
 		if p.dash > 0:
 			p.vel = p.face * 22.0
-		else: p.vel = p.vel.move_toward(move * speed, dt * (64.0 if move.length() > .1 else 48.0))
+		else: p.vel = p.vel.move_toward(move * speed, dt * (64.0 if move.length() > .1 else 48.0) * chaos.grip)
 		if input.get("tackle", false) and owner != i and p.cooldown <= 0 and p.stamina > .2:
 			p.dash = .21
 			p.dash_shot = true
@@ -300,7 +305,7 @@ func move_ball(dt: float) -> void:
 	if ball.y < .43:
 		ball.y = .43
 		ball_velocity.y = absf(ball_velocity.y) * .48 if absf(ball_velocity.y) > 1 else 0.0
-		var ground_velocity := Vector2(ball_velocity.x, ball_velocity.z).move_toward(Vector2.ZERO, dt * 3.6 * ball_friction)
+		var ground_velocity := Vector2(ball_velocity.x, ball_velocity.z).move_toward(Vector2.ZERO, dt * 3.6 * ball_friction * chaos.slide)
 		ball_velocity.x = ground_velocity.x
 		ball_velocity.z = ground_velocity.y
 	if absf(ball.z) > half_z - .43:
@@ -344,7 +349,7 @@ func move_ball(dt: float) -> void:
 			return
 
 var events_team := 0
-func goal_scored(team: int) -> void:
+func goal_scored(team: int, at = null) -> void:
 	keeper_owner = -1
 	score[team] += 1
 	stats.goals += 1
@@ -354,7 +359,7 @@ func goal_scored(team: int) -> void:
 	owner = -1
 	ball_velocity = Vector3.ZERO
 	power[1 - team] = minf(100, power[1 - team] + 18)
-	events.append({"type": "goal", "pos": ball, "team": team})
+	events.append({"type": "goal", "pos": ball if at == null else at, "team": team})
 
 func finish() -> void:
 	phase = "result"

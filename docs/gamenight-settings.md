@@ -12,8 +12,9 @@ These options are declared over GameNight's typed settings protocol. The phone a
 | `keeper_speed` | Goalkeeper movement % (live) | 50 to 150 | `100` |
 | `power_charge` | Passive super charge % (live) | 0 to 300 | `100` |
 | `super_shots` | Super shots (next shot) | On / Off | `true` |
+| `chaos` | Football chaos events (live) | Off, Some, Lots | `"Some"` |
 
-Running speed affects walking and sprinting, not tackle dash speed. Shot speed affects the next shot, not a ball already in flight. Ground friction changes rolling deceleration. Goalkeeper movement changes lateral movement and diving speed. Passive charge changes the meter's automatic refill; rewards for passes, saves and shots remain. Disabling super shots prevents powered shots without deleting earned charge.
+Running speed affects walking and sprinting, not tackle dash speed. Shot speed affects the next shot, not a ball already in flight. Ground friction changes rolling deceleration. Goalkeeper movement changes lateral movement and diving speed. Passive charge changes the meter's automatic refill; rewards for passes, saves and shots remain. Disabling super shots prevents powered shots without deleting earned charge. Chaos events are described in the README; Off ends a running event (except fireworks already in the air) and stops new ones.
 
 All numeric inputs are integers. Invalid types, unknown keys and values outside the declared range leave the previous value intact. Live options update without restarting; structural options wait for the boundary named in the label. Party choices use GameNight's existing saved configurations and Undo/Keep flow.
 

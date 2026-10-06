@@ -66,6 +66,31 @@ with the outfield players. In Classic 1v1, when a bot teammate receives possessi
 automatically follows the ball, preferring the human who passed. Another human's
 athlete is never taken over. LB / Space still switches manually off the ball.
 
+## Football chaos
+
+Every so often the match is interrupted by something that has nothing to do with
+football. One event runs at a time, announced on screen, and each ends by itself
+within about 15 seconds:
+
+- **Streaker**: an invader weaves across the pitch, shoving players and
+  backheeling a loose ball, with a hi-vis steward a step behind.
+- **Fireworks**: flares are thrown from the stands. A flashing ring marks each
+  blast radius; anyone inside when it goes off is knocked down and the ball is blown away.
+- **Pitch protest**: a line of protesters marches across with a banner that
+  blocks players and bounces the ball.
+- **Second ball**: a beach ball lands from the crowd. Run or dash into it; it
+  counts as a real goal until the stewards confiscate it.
+- **Dog**: a dog chases the ball, steals it even from a dribbler and runs off
+  with it. Dash into the dog to make it drop it.
+- **Sprinklers**: the pitch gets wet; players slide and the ball barely slows.
+- **Gale force wind**: gusts push the ball (more so in the air) and drift players.
+
+Menu **Chaos** (or the GameNight `chaos` setting) selects Off, Some (default,
+roughly one event every 40 seconds of play) or Lots. Events use their own seeded
+random stream, so the match's AI and keeper rolls are unchanged.
+`-- --demo --chaos=dog` forces an event at kickoff and
+`tools/capture_chaos.gd` renders one mid-event.
+
 ## GameNight
 
 `tools/register_gamenight.ps1` adds this local build without replacing other

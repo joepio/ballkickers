@@ -160,7 +160,15 @@ func _draw() -> void:
 		centered("%d  :  %d" % [s.score[0], s.score[1]], 474, 52)
 		centered("START / ENTER  ·  REMATCH", 560, 21)
 	if game.notice_time > 0:
+		var notice_width: float = bold.get_string_size(game.notice, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x + 48
+		panel(Rect2(800 - notice_width / 2, 148, notice_width, 40), Color(.06, .12, .17, .87), 20)
 		centered(game.notice, 177, 26, GOLD)
+	if s.chaos.active() and s.phase == "play":
+		var label: String = s.chaos.title().trim_suffix("!")
+		var width: float = bold.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 44
+		panel(Rect2(800 - width / 2, 794, width, 34), Color("c0263f"), 17)
+		draw_circle(Vector2(800 - width / 2 + 18, 811), 5, GOLD if fmod(game.run_time, .8) < .4 else CREAM)
+		text(label, Vector2(800 - width / 2 + 32, 817), 15, CREAM, true)
 	if game.paused:
 		draw_rect(Rect2(0, 0, 1600, 900), Color(.04, .09, .13, .64))
 		panel(Rect2(530, 315, 540, 250), INK, 24)
@@ -178,14 +186,14 @@ func draw_menu() -> void:
 	text("KICKERS", Vector2(55, 326), 79, ORANGE, true)
 	text("More friends. Bigger trouble.", Vector2(66, 375), 25, CREAM)
 	var matchup: String = "MATCHUP     %s" % ("%dv%d" % [game.team_size, game.team_size] if game.humans > 1 else "SOLO vs AI") if game.dual_stick else "PLAYERS     %d" % game.humans
-	var options: Array = ["KICK OFF", matchup, "CONTROLS    %s" % ("SINGLE" if game.team_size > 1 else ("DUAL" if game.dual_stick else "CLASSIC")), "MATCH       %d MIN" % (game.match_seconds / 60), "SOUND       %s" % ("ON" if game.sound_enabled else "OFF")]
+	var options: Array = ["KICK OFF", matchup, "CONTROLS    %s" % ("SINGLE" if game.team_size > 1 else ("DUAL" if game.dual_stick else "CLASSIC")), "MATCH       %d MIN" % (game.match_seconds / 60), "SOUND       %s" % ("ON" if game.sound_enabled else "OFF"), "CHAOS       %s" % ["OFF", "SOME", "LOTS"][game.chaos_level]]
 	for i in options.size():
-		var rect := Rect2(61, 421 + i * 64, 475, 53)
+		var rect := Rect2(61, 412 + i * 57, 475, 50)
 		hit_rects.append(rect)
 		var active: bool = i == game.menu_selection
 		if active: panel(rect, GOLD if i == 0 else Color("294457"), 12)
-		text(options[i], rect.position + Vector2(20, 35), 23 if i == 0 else 19, INK if active and i == 0 else CREAM, true)
-		if active and i > 0: text("‹   ›", rect.position + Vector2(388, 35), 25, GOLD, true)
+		text(options[i], rect.position + Vector2(20, 33), 23 if i == 0 else 19, INK if active and i == 0 else CREAM, true)
+		if active and i > 0: text("‹   ›", rect.position + Vector2(388, 33), 25, GOLD, true)
 	if game.team_size > 1:
 		text("One controller. One unit. Bots fill empty places.", Vector2(65, 775), 18, Color("a8c1c7"))
 		text("Left stick move / aim     LB or RB shoot / tackle", Vector2(65, 811), 17, CREAM)

@@ -66,8 +66,20 @@ const SPECS = [
     "label": "Super shots (next shot)",
     "kind": "toggle",
     "default": true
+  },
+  {
+    "key": "chaos",
+    "label": "Football chaos events (live)",
+    "kind": "choice",
+    "default": "Some",
+    "options": [
+      "Off",
+      "Some",
+      "Lots"
+    ]
   }
 ]
+const CHAOS_LEVELS = ["Off", "Some", "Lots"]
 var values: Dictionary = {}
 
 func _init() -> void:
@@ -95,6 +107,7 @@ func apply_live(sim: RefCounted) -> void:
 	for key in ["run_speed", "shot_power", "ball_friction", "keeper_speed", "power_charge"]:
 		sim.set(key, values[key] / 100.0)
 	sim.super_shots = values.super_shots
+	sim.chaos.level = CHAOS_LEVELS.find(values.chaos)
 
 
 func write_probe() -> void:

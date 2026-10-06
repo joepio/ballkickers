@@ -13,6 +13,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Simulation checks failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Input/lifecycle checks failed' }
 & $Godot --headless --path $goalRoot --script res://tests/modes_keepers.gd
 if ($LASTEXITCODE -ne 0) { throw 'Modes/keeper checks failed' }
+& $Godot --headless --path $goalRoot --script res://tests/chaos.gd
+if ($LASTEXITCODE -ne 0) { throw 'Chaos checks failed' }
 & $Godot --headless --path $goalRoot --script res://tests/audio.gd
 if ($LASTEXITCODE -ne 0) { throw 'Audio checks failed' }
 & $Godot --headless --path $goalRoot --export-pack 'Windows Desktop' (Join-Path $goalOutput 'Ballkickers.pck')
