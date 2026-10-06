@@ -6,7 +6,7 @@ const CREAM = Color("fff2d2")
 var arena_nodes: Array = []
 var pitch_size := 1
 var mats: Dictionary = {}
-var crowd_mesh: MultiMeshInstance3D
+var crowd: Node3D
 
 func material(color: Color, emission: float = 0.0) -> StandardMaterial3D:
 	var key := str(color) + str(emission)
@@ -151,7 +151,8 @@ func build() -> void:
 	label3(self, "NO FOULS. ALL FOOTBALL.", Vector3(0, 4.6, -18.68), 30, Color("ffc94d"))
 	for x in [-15, -5, 5, 15]:
 		label3(self, "PLAY LOUD" if abs(x) == 15 else "RUSH!", Vector3(x, .5, -12.1), 35, ORANGE if x < 0 else BLUE)
-	build_crowd()
+	crowd = preload("res://src/crowd.gd").new()
+	add_child(crowd)
 	# Tag the goal/net before batching so it can move without stretching.
 	for child in get_children():
 		if child is MeshInstance3D and absf(child.position.x) >= 20.9 and absf(child.position.x) <= 23.3 and absf(child.position.z) < 3.9:
@@ -164,6 +165,7 @@ func build() -> void:
 func resize_pitch(teams: int) -> void:
 	pitch_size = teams
 	var factor: float = preload("res://src/match.gd").pitch_scale(teams)
+	crowd.layout(factor)
 	for entry in arena_nodes:
 		var node: GeometryInstance3D = entry.node
 		node.transform = entry.transform
@@ -205,37 +207,6 @@ func batch_static_geometry() -> void:
 		remove_child(source)
 		source.queue_free()
 
-func build_crowd() -> void:
-	var multi := MultiMesh.new()
-	multi.transform_format = MultiMesh.TRANSFORM_3D
-	multi.use_colors = true
-	var mesh := CapsuleMesh.new()
-	mesh.radius = .25
-	mesh.height = .9
-	mesh.radial_segments = 8
-	mesh.rings = 2
-	multi.mesh = mesh
-	multi.instance_count = 400
-	var m := StandardMaterial3D.new()
-	m.vertex_color_use_as_albedo = true
-	m.roughness = 1
-	mesh.material = m
-	var random := RandomNumberGenerator.new()
-	random.seed = 18
-	for i in 400:
-		var tier: int = i / 134
-		var pos: Vector3
-		if i % 134 < 62: pos = Vector3(-23 + (i % 134) * .75, 1.0 + tier * .65, -14.8 - tier * 1.25)
-		else:
-			var j: int = i % 134 - 62
-			pos = Vector3((-1 if j < 36 else 1) * (26 + tier * 1.3), 1 + tier * .65, -13 + (j % 36) * .75)
-		pos.y += random.randf_range(-.12, .12)
-		multi.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * random.randf_range(.8, 1.2)), pos))
-		multi.set_instance_color(i, [ORANGE, BLUE, CREAM, Color("ffc94d"), Color("ad85cc")][random.randi_range(0, 4)])
-	crowd_mesh = MultiMeshInstance3D.new()
-	crowd_mesh.multimesh = multi
-	add_child(crowd_mesh)
-
 func make_player(index: int, keeper: bool = false) -> Node3D:
 	var root := Node3D.new()
 	root.name = "Athlete%d" % index
@@ -255,6 +226,9 @@ func make_player(index: int, keeper: bool = false) -> Node3D:
 	for side in [-1, 1]:
 		var eye := sphere(body, Vector3(side * .15, 1.76, .411), .056, INK)
 		eye.scale = Vector3(.9, 1.5, .6)
+		eye.name = "EyeL" if side == -1 else "EyeR"
+		var brow := box(body, Vector3(side * .15, 1.86, .44), Vector3(.15, .035, .04), INK)
+		brow.name = "BrowL" if side == -1 else "BrowR"
 		var leg := Node3D.new()
 		leg.name = "LegL" if side == -1 else "LegR"
 		leg.position = Vector3(side * .24, .48, 0)
@@ -268,11 +242,56 @@ func make_player(index: int, keeper: bool = false) -> Node3D:
 		body.add_child(arm)
 		capsule(arm, Vector3(side * .04, -.17, 0), .16, .46, color)
 		sphere(arm, Vector3(side * .09, -.37, 0), .30 if keeper else .21, CREAM)
+	var mouth := box(body, Vector3(0, 1.58, .43), Vector3(.15, .045, .04), INK)
+	mouth.name = "Mouth"
+	add_hairstyle(body, (index / 2 + (index % 2) * 4) % 8, HAIR[index % HAIR.size()])
+	var stars := Node3D.new()
+	stars.name = "Stars"
+	stars.position = Vector3(0, 2.45, 0)
+	stars.visible = false
+	body.add_child(stars)
+	for n in 3:
+		var star := sphere(stars, Vector3(cos(n * TAU / 3), 0, sin(n * TAU / 3)) * .42, .09, Color("ffd84d"))
+		star.material_override = material(Color("ffd84d"), 1.5)
 	var badge := label3(body, "GK" if keeper else str(index / 2 + 1), Vector3(0, 1.04, -.435), 32, CREAM)
 	badge.rotation.y = PI
 	var marker := ring(root, Vector3(0, .11, 0), .83, .085, color)
 	marker.name = "Marker"
 	return root
+
+const HAIR = [Color("2b1d14"), Color("e8c35a"), Color("c9503a"), Color("5a3a1e"), Color("1b1b2a"), Color("f0eadc"), Color("7a4a2a")]
+
+func add_hairstyle(body: Node3D, style: int, hair: Color) -> void:
+	# Every athlete gets a silhouette of their own, readable from the broadcast camera.
+	match style:
+		0: # Mohawk
+			for n in 4: box(body, Vector3(0, 2.13 - absf(n - 1.5) * .05, .22 - n * .16), Vector3(.1, .26, .14), hair)
+		1: # Afro
+			var afro := sphere(body, Vector3(0, 1.98, -.08), .44, hair)
+			afro.scale = Vector3(1.12, .9, 1.0)
+		2: # Ponytail
+			sphere(body, Vector3(0, 1.9, -.18), .4, hair).scale = Vector3(1.05, .75, 1.0)
+			sphere(body, Vector3(0, 1.75, -.55), .15, hair)
+			sphere(body, Vector3(0, 1.52, -.6), .12, hair)
+		3: # Backwards cap
+			sphere(body, Vector3(0, 1.98, -.02), .43, hair).scale = Vector3(1.04, .55, 1.04)
+			box(body, Vector3(0, 1.95, -.5), Vector3(.5, .05, .3), hair.darkened(.2))
+		4: # Spikes
+			for n in 5:
+				var spike := box(body, Vector3((n - 2) * .14, 2.12, -.05), Vector3(.1, .3, .1), hair)
+				spike.rotation.z = (n - 2) * -.32
+		5: # Moustache and a shiny head
+			box(body, Vector3(0, 1.645, .44), Vector3(.3, .07, .06), hair.darkened(.1))
+			sphere(body, Vector3(.12, 2.08, .1), .07, Color("fffbe8"))
+		6: # Top bun
+			sphere(body, Vector3(0, 1.94, -.08), .41, hair).scale = Vector3(1.03, .6, 1.0)
+			sphere(body, Vector3(0, 2.22, -.1), .17, hair)
+		7: # Round glasses and curls
+			for side in [-1, 1]:
+				var lens := ring(body, Vector3(side * .15, 1.76, .43), .085, .018, INK)
+				lens.rotation.x = PI / 2
+				for n in 3: sphere(body, Vector3(side * (.12 + n * .1), 2.02 - n * .07, -.1 - n * .05), .14, hair)
+			box(body, Vector3(0, 1.77, .45), Vector3(.1, .02, .02), INK)
 
 func make_ball() -> Node3D:
 	var root := Node3D.new()

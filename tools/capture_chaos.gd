@@ -1,5 +1,6 @@
 extends SceneTree
 ## Renders one chaos event mid-play: godot --path . --script res://tools/capture_chaos.gd -- --chaos=dog --after=3 --out=/tmp/dog.png
+## --goal=1.2 instead scores for Ember and renders the celebration that long after.
 func _initialize() -> void:
 	run.call_deferred()
 
@@ -8,11 +9,13 @@ func run() -> void:
 	var after := 3.0
 	var out := "user://chaos.png"
 	var teams := 1
+	var goal := -1.0
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--chaos="): kind = arg.trim_prefix("--chaos=")
 		elif arg.begins_with("--after="): after = float(arg.trim_prefix("--after="))
 		elif arg.begins_with("--out="): out = arg.trim_prefix("--out=")
 		elif arg.begins_with("--teams="): teams = int(arg.trim_prefix("--teams="))
+		elif arg.begins_with("--goal="): goal = float(arg.trim_prefix("--goal="))
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	game.sound_enabled = false
@@ -22,16 +25,23 @@ func run() -> void:
 	game.sim.setup(0, false, 725, 120, true, teams)
 	game.sync_arena()
 	game.sim.phase = "play"
-	game.sim.chaos.forced = kind
+	game.sim.chaos.forced = kind if goal < 0 else ""
+	game.sim.chaos.level = 1 if goal < 0 else 0
 	game.camera.position = Vector3(0, 30 * game.sim.pitch_scale(teams), 31 * game.sim.pitch_scale(teams))
 	await process_frame
 	var t := 0.0
-	while t < after:
+	var scored := false
+	while t < after + maxf(goal, 0.0):
+		if goal >= 0 and t >= after and not scored:
+			scored = true
+			game.sim.goal_scored(0)
+			for event in game.sim.events: game.handle_event(event)
 		game.sim.step(1.0 / 60)
 		for event in game.sim.events: game.handle_event(event)
 		game.hit_stop = 0.0
 		game.update_visuals(1.0 / 60)
 		game.update_effects(1.0 / 60)
+		game.stadium.crowd.update(1.0 / 60, false)
 		t += 1.0 / 60
 	for i in 3: await process_frame
 	await RenderingServer.frame_post_draw

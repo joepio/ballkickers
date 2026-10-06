@@ -296,6 +296,7 @@ func _process(dt: float) -> void:
 		if hit_stop <= 0:
 			update_visuals(dt)
 			update_effects(dt)
+		stadium.crowd.update(dt, menu or (sim.phase == "play" and not sim.chaos.active() and hype_free()))
 	var factor := Match.pitch_scale(team_size)
 	camera.size = 33 * factor
 	var target_x := -9.0 * factor if menu else 0.0
@@ -313,6 +314,10 @@ func _process(dt: float) -> void:
 		mean /= maxf(1, frame_samples.size())
 		print("BALLKICKERS_METRICS ", JSON.stringify({"fps": Engine.get_frames_per_second(), "mean_frame_ms": mean, "p95_frame_ms": frame_samples[int(frame_samples.size() * .95)] if not frame_samples.is_empty() else 0, "draw_calls": Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), "objects": Performance.get_monitor(Performance.OBJECT_NODE_COUNT), "stats": sim.stats, "score": sim.score}))
 		get_tree().quit()
+
+func hype_free() -> bool:
+	# The wave only starts while the ball is calmly in midfield.
+	return absf(sim.ball.x) < sim.half_x * .55
 
 func update_visuals(dt: float) -> void:
 	for team in keeper_nodes.size():
@@ -332,6 +337,8 @@ func update_visuals(dt: float) -> void:
 		body.get_node("ArmR").rotation.z = .55 if down else -.35
 		body.get_node("LegL").rotation.x = sin(sim.elapsed * 18) * minf(.35, absf(k.vel) * .04) - k.kick * 4
 		body.get_node("LegR").rotation.x = -body.get_node("LegL").rotation.x
+		express(body, "focus" if k.dive > 0 else ("grin" if holding else ""), sim.elapsed + team * 2.1, k.kick > 0)
+		body.get_node("Stars").visible = false
 	for i in athletes.size():
 		var node: Node3D = athletes[i]
 		node.visible = i < sim.players.size()
@@ -350,14 +357,22 @@ func update_visuals(dt: float) -> void:
 		body.get_node("ArmL").rotation.x = -stride
 		body.get_node("ArmR").rotation.x = stride
 		node.get_node("Marker").visible = p.human >= 0 and not menu
+		body.get_node("ArmL").rotation.z = .1
+		body.get_node("ArmR").rotation.z = -.1
+		var mood := "focus" if p.dash > 0 or p.charge > .05 else ("hurt" if p.stun > 0 else ("grin" if sim.owner == i else ""))
 		if sim.phase == "goal" or sim.phase == "result":
 			if p.team == sim.events_team:
-				body.position.y += absf(sin(sim.elapsed * 8 + i)) * .65
-				body.get_node("ArmL").rotation.z = -2.4
-				body.get_node("ArmR").rotation.z = 2.4
-		else:
-			body.get_node("ArmL").rotation.z = .1
-			body.get_node("ArmR").rotation.z = -.1
+				celebrate(body, i, sim.elapsed)
+				mood = "cheer"
+			else:
+				# Heads down for the team that conceded.
+				body.rotation.x = lerpf(body.rotation.x, .5, 1 - exp(-dt * 6))
+				body.position.y = 0.0
+				mood = "sad"
+		express(body, mood, sim.elapsed + i * 1.37, p.kick > 0)
+		var stars: Node3D = body.get_node("Stars")
+		stars.visible = p.stun > .12
+		stars.rotation.y = run_time * 7
 	chaos_view.update(sim, dt)
 	ball_node.position = ball_node.position.lerp(sim.ball, 1 - exp(-dt * 36))
 	ball_node.rotate_x(sim.ball_velocity.z * dt * 1.6)
@@ -379,12 +394,56 @@ func update_visuals(dt: float) -> void:
 		entry.node.visible = entry.life > 0
 		entry.node.scale = Vector3.ONE * maxf(.01, entry.life * 2.8)
 
+func celebrate(body: Node3D, i: int, t: float) -> void:
+	# Each athlete has a signature celebration.
+	match (i / 2 + (i % 2) * 4) % 4:
+		0:
+			body.position.y += absf(sin(t * 8 + i)) * .65
+			body.get_node("ArmL").rotation.z = -2.4
+			body.get_node("ArmR").rotation.z = 2.4
+		1:
+			body.rotation.y = t * 11.0
+			body.position.y += absf(sin(t * 6)) * .25
+			body.get_node("ArmL").rotation.z = -1.4
+			body.get_node("ArmR").rotation.z = 1.4
+		2:
+			# Aeroplane: arms out, banking from side to side.
+			body.rotation.z = sin(t * 4 + i) * .4
+			body.get_node("ArmL").rotation.z = -1.55
+			body.get_node("ArmR").rotation.z = 1.55
+			body.get_node("ArmL").rotation.x = 0.0
+			body.get_node("ArmR").rotation.x = 0.0
+		3:
+			# Backflips.
+			var cycle := fmod(t * 1.3 + i * .3, 1.0)
+			body.position.y += sin(cycle * PI) * 1.3
+			body.rotation.x = -cycle * TAU
+			body.get_node("ArmL").rotation.z = -2.8
+			body.get_node("ArmR").rotation.z = 2.8
+
+func express(body: Node3D, mood: String, t: float, kicking: bool) -> void:
+	var blink := fmod(t, 3.7) < .12 and mood != "hurt"
+	for eye in ["EyeL", "EyeR"]:
+		var node: Node3D = body.get_node(eye)
+		node.scale = Vector3(.9, .25 if blink or mood == "cheer" else (.7 if mood == "hurt" else 1.5), .6)
+	var mouth: Node3D = body.get_node("Mouth")
+	if kicking or mood in ["cheer", "hurt"]: mouth.scale = Vector3(.8, 3.2, 1)
+	elif mood == "grin": mouth.scale = Vector3(1.45, 1.2, 1)
+	elif mood == "sad": mouth.scale = Vector3(.7, .8, 1)
+	else: mouth.scale = Vector3.ONE
+	var tilt := {"focus": .4, "hurt": -.35, "sad": -.45, "cheer": -.2}.get(mood, 0.0) as float
+	body.get_node("BrowL").rotation.z = -tilt
+	body.get_node("BrowR").rotation.z = tilt
+	body.get_node("BrowL").position.y = 1.86 + (.04 if mood in ["cheer", "hurt"] else 0.0)
+	body.get_node("BrowR").position.y = body.get_node("BrowL").position.y
+
 func handle_event(event: Dictionary) -> void:
 	var type: String = event.type
 	var color: Color = Stadium.ORANGE if event.get("team", 0) == 0 else Stadium.BLUE
 	match type:
 		"control_changed": apply_profiles()
 		"save":
+			stadium.crowd.event("save")
 			burst(event.pos, Stadium.CREAM, 10, 5)
 			shake = .3
 			play_sound("save")
@@ -397,11 +456,13 @@ func handle_event(event: Dictionary) -> void:
 			impact_pause(.035)
 		"keeper_dive": burst(event.pos, color, 5, 3)
 		"shot", "pass":
+			if type == "shot": stadium.crowd.event("shot")
 			burst(event.pos, Stadium.CREAM, 6, 4)
 			play_sound("kick" if type == "shot" else "pass")
 			shake = .25 if type == "shot" else .08
 			if type == "shot": impact_pause(.033)
 		"super":
+			stadium.crowd.event("super")
 			burst(event.pos, Color("ffce56"), 28, 12)
 			super_time = 1.4
 			shake = .85
@@ -415,6 +476,7 @@ func handle_event(event: Dictionary) -> void:
 			play_sound("hit")
 			impact_pause(.050)
 		"goal":
+			stadium.crowd.event("goal", event.team)
 			burst(event.pos + Vector3.UP * 2, color, 65, 18)
 			burst(Vector3(0, 3, -4), Color("ffce56"), 45, 13)
 			shake = 1.0
@@ -427,6 +489,7 @@ func handle_event(event: Dictionary) -> void:
 			notice_time = 3.0
 			play_sound("whistle")
 		"chaos":
+			stadium.crowd.event("chaos")
 			notice = event.text
 			notice_time = 2.6
 			shake = maxf(shake, .2)
@@ -449,6 +512,7 @@ func handle_event(event: Dictionary) -> void:
 			burst(event.pos, Color("ff5c6b"), 16, 6)
 			play_sound("hit")
 		"finish":
+			stadium.crowd.event("finish", event.team)
 			sim.events_team = event.team
 			play_sound("goal")
 			party.send({"type": "finished", "session": party.session})

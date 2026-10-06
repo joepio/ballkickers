@@ -66,6 +66,20 @@ with the outfield players. In Classic 1v1, when a bot teammate receives possessi
 automatically follows the ball, preferring the human who passed. Another human's
 athlete is never taken over. LB / Space still switches manually off the ball.
 
+## Characters and crowd
+
+Every athlete has a signature look (mohawk, afro, ponytail, backwards cap,
+spikes, moustache, top bun or round glasses), a face that blinks, frowns while
+charging or dashing, grins on the ball and sees stars when tackled, and a
+signature goal celebration: jump, spin, aeroplane or backflip. The team that
+concedes hangs its head.
+
+The 400 supporters are built like small athletes, with shirts in their team's
+colours, skin tones, hats and hair. One GPU shader animates them: idle fidgeting,
+jumping and waving for their own team's goals, slumping after a goal against,
+rising for shots, saves and chaos, and a Mexican wave when play is calm in
+midfield. A few superfans hold signs ("HI MUM!") or wave big flags.
+
 ## Football chaos
 
 Every so often the match is interrupted by something that has nothing to do with
