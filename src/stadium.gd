@@ -7,6 +7,21 @@ var arena_nodes: Array = []
 var pitch_size := 1
 var mats: Dictionary = {}
 var crowd: Node3D
+static var display_font: Font
+static var round_font: Font
+
+## Lilita One for headlines and numbers, Fredoka SemiBold for everything else.
+static func fonts() -> void:
+	if display_font: return
+	var fallback: Array[Font] = [ThemeDB.fallback_font]
+	var lilita: FontFile = load("res://assets/fonts/LilitaOne-Regular.ttf")
+	lilita.fallbacks = fallback
+	display_font = lilita
+	var fredoka := FontVariation.new()
+	fredoka.base_font = load("res://assets/fonts/Fredoka-var.ttf")
+	fredoka.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 600}
+	fredoka.fallbacks = fallback
+	round_font = fredoka
 
 func material(color: Color, emission: float = 0.0) -> StandardMaterial3D:
 	var key := str(color) + str(emission)
@@ -77,6 +92,8 @@ func label3(parent: Node3D, text: String, pos: Vector3, size: int, color: Color)
 	label.pixel_size = .015
 	label.modulate = color
 	label.outline_size = 0
+	fonts()
+	label.font = display_font
 	label.position = pos
 	parent.add_child(label)
 	return label
@@ -221,8 +238,6 @@ func make_player(index: int, keeper: bool = false) -> Node3D:
 	var head := sphere(body, Vector3(0, 1.72, 0), .46, CREAM)
 	head.name = "Head"
 	# Sweatband follows the face, with no floating panel geometry.
-	var headband := ring(body, Vector3(0, 1.82, 0), .44, .055, color)
-	headband.name = "Headband"
 	for side in [-1, 1]:
 		var eye := sphere(body, Vector3(side * .15, 1.76, .411), .056, INK)
 		eye.scale = Vector3(.9, 1.5, .6)
@@ -244,7 +259,11 @@ func make_player(index: int, keeper: bool = false) -> Node3D:
 		sphere(arm, Vector3(side * .09, -.37, 0), .30 if keeper else .21, CREAM)
 	var mouth := box(body, Vector3(0, 1.58, .43), Vector3(.15, .045, .04), INK)
 	mouth.name = "Mouth"
-	add_hairstyle(body, (index / 2 + (index % 2) * 4) % 8, HAIR[index % HAIR.size()])
+	var hair := Node3D.new()
+	hair.name = "Hair"
+	hair.set_meta("color", HAIR[index % HAIR.size()])
+	body.add_child(hair)
+	add_hairstyle(hair, (index / 2 + (index % 2) * 4) % 8, HAIR[index % HAIR.size()])
 	var stars := Node3D.new()
 	stars.name = "Stars"
 	stars.position = Vector3(0, 2.45, 0)
@@ -262,6 +281,7 @@ func make_player(index: int, keeper: bool = false) -> Node3D:
 const HAIR = [Color("2b1d14"), Color("e8c35a"), Color("c9503a"), Color("5a3a1e"), Color("1b1b2a"), Color("f0eadc"), Color("7a4a2a")]
 
 func add_hairstyle(body: Node3D, style: int, hair: Color) -> void:
+	# Parts are children of the Hair node, so a GameNight profile colour can dye them.
 	# Every athlete gets a silhouette of their own, readable from the broadcast camera.
 	match style:
 		0: # Mohawk
@@ -282,7 +302,7 @@ func add_hairstyle(body: Node3D, style: int, hair: Color) -> void:
 				spike.rotation.z = (n - 2) * -.32
 		5: # Moustache and a shiny head
 			box(body, Vector3(0, 1.645, .44), Vector3(.3, .07, .06), hair.darkened(.1))
-			sphere(body, Vector3(.12, 2.08, .1), .07, Color("fffbe8"))
+			sphere(body, Vector3(.12, 2.08, .1), .07, Color("fffbe8")).set_meta("dye", false)
 		6: # Top bun
 			sphere(body, Vector3(0, 1.94, -.08), .41, hair).scale = Vector3(1.03, .6, 1.0)
 			sphere(body, Vector3(0, 2.22, -.1), .17, hair)
@@ -290,8 +310,9 @@ func add_hairstyle(body: Node3D, style: int, hair: Color) -> void:
 			for side in [-1, 1]:
 				var lens := ring(body, Vector3(side * .15, 1.76, .43), .085, .018, INK)
 				lens.rotation.x = PI / 2
+				lens.set_meta("dye", false)
 				for n in 3: sphere(body, Vector3(side * (.12 + n * .1), 2.02 - n * .07, -.1 - n * .05), .14, hair)
-			box(body, Vector3(0, 1.77, .45), Vector3(.1, .02, .02), INK)
+			box(body, Vector3(0, 1.77, .45), Vector3(.1, .02, .02), INK).set_meta("dye", false)
 
 func make_ball() -> Node3D:
 	var root := Node3D.new()

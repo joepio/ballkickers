@@ -147,6 +147,7 @@ Static stadium geometry is combined by material; 400 spectators use one
 MultiMesh. A single orthographic camera scales to keep the whole pitch visible. No downloaded visual art, third-party character assets, or heavyweight postprocessing.
 Football and whistle recordings by Joseph SARDIN / BigSoundBank and soft impacts
 by Kenney are CC0; the goal melody and power accents are original.
+Fonts: Lilita One and Fredoka, both SIL Open Font License (`third_party/FONTS-OFL.txt`).
 
 Shots have 33 ms of hit-stop and successful impacts 50 ms, capped rather than stacked.
 

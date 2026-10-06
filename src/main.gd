@@ -694,6 +694,10 @@ func on_party_command(message: Dictionary) -> void:
 			if key == "seconds": match_seconds = settings.values.seconds
 			elif key == "matchup": managed_matchup = settings.values.matchup
 
+func dye_hair(athlete: Node3D, color: Color) -> void:
+	for part in athlete.get_node("Body/Hair").get_children():
+		if part is MeshInstance3D and part.get_meta("dye", true): part.material_override = stadium.material(color)
+
 func apply_profiles() -> void:
 	if not party.managed: return
 	var seats: Array = party.human_seats()
@@ -701,7 +705,7 @@ func apply_profiles() -> void:
 		var p: Dictionary = sim.players[i]
 		p.erase("profile")
 		athletes[i].get_node("Body/Head").material_override = stadium.material(Stadium.CREAM)
-		athletes[i].get_node("Body/Headband").material_override = stadium.material(Stadium.ORANGE if p.team == 0 else Stadium.BLUE)
+		dye_hair(athletes[i], athletes[i].get_node("Body/Hair").get_meta("color"))
 		var person: int = p.human / 2 if sim.dual_control else p.human
 		if p.human < 0 or person >= seats.size(): continue
 		var id: String = str(seats[person].get("occupant", {}).get("player_id", ""))
@@ -709,7 +713,8 @@ func apply_profiles() -> void:
 		p.name = str(profile.get("name", "P%d" % (p.human + 1)))
 		p.profile = profile
 		athletes[i].get_node("Body/Head").material_override = stadium.material(Color.from_string(str(profile.get("skin_color", "#fff2d2")), Stadium.CREAM))
-		athletes[i].get_node("Body/Headband").material_override = stadium.material(Color.from_string(str(profile.get("color", "#fff2d2")), Stadium.CREAM))
+		# The party profile colour shows as dyed hair.
+		dye_hair(athletes[i], Color.from_string(str(profile.get("color", "#fff2d2")), Stadium.CREAM))
 		var avatar: String = str(profile.get("avatar", ""))
 		if avatar != "" and not profile_textures.has(avatar):
 			var data = JSON.parse_string(avatar)

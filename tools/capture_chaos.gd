@@ -1,6 +1,6 @@
 extends SceneTree
 ## Renders one chaos event mid-play: godot --path . --script res://tools/capture_chaos.gd -- --chaos=dog --after=3 --out=/tmp/dog.png
-## --goal=1.2 instead scores for Ember and renders the celebration that long after.
+## --goal=1.2 instead scores for the Tangerines and renders the celebration that long after.
 func _initialize() -> void:
 	run.call_deferred()
 

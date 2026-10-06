@@ -10,7 +10,7 @@ const INK = Color("182d41")
 const NEUTRAL = [Color("ffc94d"), Color("ad85cc"), Color("6ccf7a"), Color("e84d6b"), CREAM, Color("4f8fe0")]
 const SKINS = [Color("ffe0bd"), Color("f2c29b"), Color("d9a074"), Color("b47a50"), Color("8a5634"), Color("5e3a22")]
 const HAIR = [Color("2b1d14"), Color("5a3a1e"), Color("c9503a"), Color("e8c35a"), Color("9a9a9a"), Color("1b1b2a")]
-const SIGNS = ["HI MUM!", "EMBER 4 LIFE", "TIDAL TILL I DIE", "MARRY ME BUBS", "I SKIPPED WORK", "MORE GOALS PLS", "ZIG IS MY HERO", "WHO IS THE REF?"]
+const SIGNS = ["HI MUM!", "TANGERINES 4 LIFE", "BLUEBERRY TILL I DIE", "MARRY ME BUBS", "I SKIPPED WORK", "MORE GOALS PLS", "ZIG IS MY HERO", "WHO IS THE REF?"]
 const SHADER = """shader_type spatial;
 uniform float cheer_0 = 0.0;
 uniform float cheer_1 = 0.0;
@@ -188,9 +188,8 @@ func layout(factor: float) -> void:
 
 func build_props(random: RandomNumberGenerator) -> void:
 	# A few superfans: hand-written signs on the back stand and big flags on the sides.
-	var label_font := SystemFont.new()
-	label_font.font_names = PackedStringArray(["Arial Black", "DejaVu Sans", "Arial"])
-	label_font.font_weight = 900
+	preload("res://src/stadium.gd").fonts()
+	var label_font: Font = preload("res://src/stadium.gd").display_font
 	var picks := [8, 21, 35, 49, 75, 112, 150, 189]
 	for n in picks.size():
 		var seat: int = picks[n] if n < 4 else 134 + picks[n] % 62

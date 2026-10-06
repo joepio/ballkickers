@@ -5,16 +5,17 @@ const GOLD = Color("ffce56")
 const ORANGE = Color("ff7547")
 const BLUE = Color("58caff")
 var game: Node
-var font: Font = ThemeDB.fallback_font
-var bold: Font = SystemFont.new()
+var font: Font
+var bold: Font
 var scale_factor := 1.0
 var hit_rects: Array = []
 var control_icons: Array[Texture2D] = []
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bold.font_names = PackedStringArray(["Arial Black", "DejaVu Sans", "Arial"])
-	bold.font_weight = 900
+	preload("res://src/stadium.gd").fonts()
+	font = preload("res://src/stadium.gd").round_font
+	bold = preload("res://src/stadium.gd").display_font
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	# Analytic coverage at 4x display resolution: transparent background and
 	# smooth inner/outer edges, including the straight edge of the half disc.
@@ -71,9 +72,9 @@ func _draw() -> void:
 	panel(Rect2(548, 28, 504, 82), INK)
 	panel(Rect2(548, 28, 155, 82), ORANGE)
 	panel(Rect2(897, 28, 155, 82), BLUE)
-	text("EMBER", Vector2(564, 57), 17, INK, true)
+	text("TANGERINES", Vector2(564, 57), 17, INK, true)
 	text(str(s.score[0]), Vector2(606, 94), 34, INK, true)
-	text("TIDAL", Vector2(928, 57), 17, INK, true)
+	text("BLUEBERRIES", Vector2(913, 57), 17, INK, true)
 	text(str(s.score[1]), Vector2(953, 94), 34, INK, true)
 	var seconds := int(ceil(s.clock))
 	centered("GOLDEN GOAL" if s.overtime else "%d:%02d" % [seconds / 60, seconds % 60], 80, 24 if s.overtime else 34)
@@ -152,11 +153,11 @@ func _draw() -> void:
 		var color: Color = ORANGE if s.events_team == 0 else BLUE
 		panel(Rect2(507, 335, 586, 172), INK, 24)
 		centered("GOOOAL!", 429, 73, color)
-		centered("EMBER SCORES" if s.events_team == 0 else "TIDAL SCORES", 475, 22)
+		centered("THE TANGERINES SCORE" if s.events_team == 0 else "THE BLUEBERRIES SCORE", 475, 22)
 	elif s.phase == "result":
 		panel(Rect2(460, 274, 680, 328), INK, 24)
 		centered("FULL TIME", 330, 20, GOLD)
-		centered("EMBER WINS!" if s.score[0] > s.score[1] else "TIDAL WINS!", 401, 55, ORANGE if s.score[0] > s.score[1] else BLUE)
+		centered("TANGERINES WIN!" if s.score[0] > s.score[1] else "BLUEBERRIES WIN!", 401, 55, ORANGE if s.score[0] > s.score[1] else BLUE)
 		centered("%d  :  %d" % [s.score[0], s.score[1]], 474, 52)
 		centered("START / ENTER  ·  REMATCH", 560, 21)
 	if game.notice_time > 0:
@@ -192,7 +193,9 @@ func draw_menu() -> void:
 		hit_rects.append(rect)
 		var active: bool = i == game.menu_selection
 		if active: panel(rect, GOLD if i == 0 else Color("294457"), 12)
-		text(options[i], rect.position + Vector2(20, 33), 23 if i == 0 else 19, INK if active and i == 0 else CREAM, true)
+		var parts: PackedStringArray = options[i].split("  ", false)
+		text(parts[0].strip_edges(), rect.position + Vector2(20, 33), 23 if i == 0 else 19, INK if active and i == 0 else CREAM, true)
+		if parts.size() > 1: text(parts[-1].strip_edges(), rect.position + Vector2(190, 33), 19, GOLD if active else CREAM, true)
 		if active and i > 0: text("‹   ›", rect.position + Vector2(388, 33), 25, GOLD, true)
 	if game.team_size > 1:
 		text("One controller. One unit. Bots fill empty places.", Vector2(65, 775), 18, Color("a8c1c7"))
