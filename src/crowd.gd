@@ -1,5 +1,5 @@
 extends Node3D
-## 400 supporters built like small athletes: shirts, heads, eyes, arms and hats,
+## 520 supporters built like small athletes: shirts, heads, eyes, arms and hats,
 ## drawn as a handful of MultiMeshes. One shader animates them all on the GPU:
 ## idle fidgeting, jumping and arm waving for their team, slumping after a goal
 ## against, a Mexican wave, and a few fans with signs and flags.
@@ -75,22 +75,13 @@ func _ready() -> void:
 			facing = side * -PI / 2
 			# The ring runs from the front-left corner, along the back, to the front-right.
 			ring = (.3 - (k % 36) / 35.0 * .3) if side < 0 else (.7 + (k % 36) / 35.0 * .3)
-		pos.y += random.randf_range(-.08, .08)
-		var team := 0.5
-		var lean: float = pos.x / 23.0
-		if random.randf() < clampf(.5 + absf(lean) * .45, .5, .92): team = 0.0 if lean < 0 else 1.0
-		var shirt: Color
-		if team == 0.0: shirt = ORANGE.lerp([CREAM, Color("ffc94d"), INK][random.randi_range(0, 2)], random.randf_range(0, .3))
-		elif team == 1.0: shirt = BLUE.lerp([CREAM, Color("4f8fe0"), INK][random.randi_range(0, 2)], random.randf_range(0, .3))
-		else: shirt = NEUTRAL[random.randi_range(0, NEUTRAL.size() - 1)]
-		var hat := -1
-		var roll := random.randf()
-		if roll < .28: hat = 0
-		elif roll < .42: hat = 1
-		elif roll < .62: hat = 2
-		seats.append({"pos": pos, "facing": facing, "ring": ring, "team": team, "energy": random.randf(),
-			"scale": random.randf_range(.86, 1.1), "shirt": shirt, "skin": SKINS[random.randi_range(0, SKINS.size() - 1)],
-			"hat": hat, "hat_color": shirt.darkened(.3) if random.randf() < .6 else HAIR[random.randi_range(0, HAIR.size() - 1)]})
+		add_seat(random, pos, facing, ring)
+	# The near stand, seen from behind on the main camera and face-on in close-ups.
+	# The wave carries on along it, from the right corner back to the left.
+	for tier in 2:
+		for j in 60:
+			var pos := Vector3(22.1 - j * .75, 1.0 + tier * .65, 16.1 + tier * 1.25)
+			add_seat(random, pos, PI, 1.0 + j / 59.0 * .3)
 	var body := capsule(.27, .78, Vector3.ZERO)
 	var head := combine(sphere(.25, Vector3(0, .56, 0)))
 	var eyes := combine([sphere(.05, Vector3(-.09, .6, .24)), sphere(.05, Vector3(.09, .6, .24))])
@@ -109,6 +100,24 @@ func _ready() -> void:
 	layers["hair"] = layer(hair, hats[2])
 	build_props(random)
 	layout(1.0)
+
+func add_seat(random: RandomNumberGenerator, pos: Vector3, facing: float, ring: float) -> void:
+	pos.y += random.randf_range(-.08, .08)
+	var team := 0.5
+	var lean: float = pos.x / 23.0
+	if random.randf() < clampf(.5 + absf(lean) * .45, .5, .92): team = 0.0 if lean < 0 else 1.0
+	var shirt: Color
+	if team == 0.0: shirt = ORANGE.lerp([CREAM, Color("ffc94d"), INK][random.randi_range(0, 2)], random.randf_range(0, .3))
+	elif team == 1.0: shirt = BLUE.lerp([CREAM, Color("4f8fe0"), INK][random.randi_range(0, 2)], random.randf_range(0, .3))
+	else: shirt = NEUTRAL[random.randi_range(0, NEUTRAL.size() - 1)]
+	var hat := -1
+	var roll := random.randf()
+	if roll < .28: hat = 0
+	elif roll < .42: hat = 1
+	elif roll < .62: hat = 2
+	seats.append({"pos": pos, "facing": facing, "ring": ring, "team": team, "energy": random.randf(),
+		"scale": random.randf_range(.86, 1.1), "shirt": shirt, "skin": SKINS[random.randi_range(0, SKINS.size() - 1)],
+		"hat": hat, "hat_color": shirt.darkened(.3) if random.randf() < .6 else HAIR[random.randi_range(0, HAIR.size() - 1)]})
 
 func capsule(radius: float, height: float, offset: Vector3) -> Mesh:
 	var mesh := CapsuleMesh.new()
@@ -270,7 +279,7 @@ func update(dt: float, quiet: bool) -> void:
 	# Mexican wave when the game is calm: it rolls around the ring every so often.
 	if wave_u >= 0:
 		wave_u += dt / 4.5
-		if wave_u > 1.15: wave_u = -1.0
+		if wave_u > 1.45: wave_u = -1.0
 	elif quiet:
 		wave_clock -= dt
 		if wave_clock <= 0:

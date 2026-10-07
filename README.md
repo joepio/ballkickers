@@ -74,11 +74,21 @@ charging or dashing, grins on the ball and sees stars when tackled, and a
 signature goal celebration: jump, spin, aeroplane or backflip. The team that
 concedes hangs its head.
 
-The 400 supporters are built like small athletes, with shirts in their team's
+The 520 supporters, on three sides and a low near stand, are built like small athletes, with shirts in their team's
 colours, skin tones, hats and hair. One GPU shader animates them: idle fidgeting,
 jumping and waving for their own team's goals, slumping after a goal against,
 rising for shots, saves and chaos, and a Mexican wave when play is calm in
 midfield. A few superfans hold signs ("HI MUM!") or wave big flags.
+
+## Stadium and screen
+
+The stadium screen behind the back stand is the scoreboard: score, clock and
+both power meters (gold when a power shot is ready). The on-screen HUD keeps
+only player markers, a fading controls reminder at kick-off and the big moments.
+Around the bowl are dugouts, corner floodlight towers, a park with trees, hills,
+a small skyline, clouds and a slow Ballkickers blimp, which the replay close-ups
+show off. The broadcast camera sits a little lower than isometric and drifts
+gently with the ball without ever losing a goal.
 
 ## Goal replays
 
@@ -160,8 +170,9 @@ suppression and dedicated goal/whistle voices. `tests/audio.gd` checks playback.
 `-- --demo --capture=E:/path/frame.png --capture-at=12 --exit-at=30` produces
 repeatable visual captures and frame statistics. Tests use fixed seeds.
 
-Static stadium geometry is combined by material; 400 spectators use one
-MultiMesh. A single orthographic camera scales to keep the whole pitch visible. No downloaded visual art, third-party character assets, or heavyweight postprocessing.
+Static stadium and scenery geometry is combined by material; 520 spectators use
+one MultiMesh per body part. A single orthographic camera scales to keep the whole
+pitch visible. No downloaded visual art, third-party character assets, or heavyweight postprocessing.
 Football and whistle recordings by Joseph SARDIN / BigSoundBank and soft impacts
 by Kenney are CC0; the goal melody and power accents are original.
 Fonts: Lilita One and Fredoka, both SIL Open Font License (`third_party/FONTS-OFL.txt`).

@@ -7,6 +7,13 @@ var arena_nodes: Array = []
 var pitch_size := 1
 var mats: Dictionary = {}
 var crowd: Node3D
+var scenery: Node3D
+var board: Node3D
+var board_scores: Array = []
+var board_bars: Array = []
+var board_clock: Label3D
+var blimp: Node3D
+var blimp_angle := 0.0
 static var display_font: Font
 static var round_font: Font
 
@@ -101,8 +108,17 @@ func label3(parent: Node3D, text: String, pos: Vector3, size: int, color: Color)
 func build() -> void:
 	var world := WorldEnvironment.new()
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("91b7c5")
+	# A bright summer sky for the close-ups; the main camera never sees it.
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = Color("3f8fd2")
+	sky_material.sky_horizon_color = Color("d4ecf2")
+	sky_material.sky_curve = .12
+	sky_material.ground_horizon_color = Color("d4ecf2")
+	sky_material.ground_bottom_color = Color("6f9c5c")
+	sky_material.sun_angle_max = 8
+	env.sky = Sky.new()
+	env.sky.sky_material = sky_material
+	env.background_mode = Environment.BG_SKY
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color("b4dbef")
 	env.ambient_light_energy = .24
@@ -117,7 +133,8 @@ func build() -> void:
 	sun.directional_shadow_max_distance = 100
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	add_child(sun)
-	box(self, Vector3(0, -1.6, 0), Vector3(200, .6, 200), Color("86a7b5"))
+	box(self, Vector3(0, -1.6, 0), Vector3(200, .6, 200), Color("7fae63"))
+	box(self, Vector3(0, -1.32, 0), Vector3(78, .2, 58), Color("aeb3a6"))
 	box(self, Vector3(0, -.8, 0), Vector3(49, 1.4, 31), INK)
 	box(self, Vector3(0, -.32, 0), Vector3(45, .5, 27), Color("104c4b"))
 	for i in 14:
@@ -160,14 +177,14 @@ func build() -> void:
 		box(self, Vector3(x, 9.1, -17.7), Vector3(3.5, .8, .65), CREAM)
 		for i in 4: box(self, Vector3(x - 1.3 + i * .86, 9.15, -17.31), Vector3(.55, .4, .06), Color("fff3cb"), .8)
 	for x in [-15, 15]:
-		box(self, Vector3(x, 5.25, -18), Vector3(11, .45, 4.8), ORANGE if x < 0 else BLUE)
+		box(self, Vector3(x, 5.25, -18), Vector3(11, .45, 4.8), Color("2b4058"))
+		box(self, Vector3(x, 5.25, -15.55), Vector3(11, .5, .12), ORANGE if x < 0 else BLUE)
 		for xx in [-4.5, 4.5]: rod(self, Vector3(x + xx, 0, -19), Vector3(x + xx, 5.1, -19), .15, INK)
-	box(self, Vector3(0, 5.2, -19), Vector3(14.2, 3.6, .55), INK)
-	box(self, Vector3(0, 7.1, -19), Vector3(14.5, .16, .65), Color("ffc94d"))
-	label3(self, "BALLKICKERS", Vector3(0, 5.8, -18.68), 82, CREAM)
-	label3(self, "NO FOULS. ALL FOOTBALL.", Vector3(0, 4.6, -18.68), 30, Color("ffc94d"))
+	box(self, Vector3(0, 4.3, -19), Vector3(14.2, 3.6, .55), INK)
+	box(self, Vector3(0, 6.2, -19), Vector3(14.5, .16, .65), Color("ffc94d"))
 	for x in [-15, -5, 5, 15]:
 		label3(self, "PLAY LOUD" if abs(x) == 15 else "RUSH!", Vector3(x, .5, -12.1), 35, ORANGE if x < 0 else BLUE)
+	build_bowl()
 	crowd = preload("res://src/crowd.gd").new()
 	add_child(crowd)
 	# Tag the goal/net before batching so it can move without stretching.
@@ -175,14 +192,141 @@ func build() -> void:
 		if child is MeshInstance3D and absf(child.position.x) >= 20.9 and absf(child.position.x) <= 23.3 and absf(child.position.z) < 3.9:
 			child.set_meta("goal", true)
 	batch_static_geometry()
+	build_board()
 	for child in get_children():
 		if child is GeometryInstance3D:
 			arena_nodes.append({"node": child, "transform": child.transform})
+
+func build_board() -> void:
+	# The stadium screen is the scoreboard: score, clock and power meters live
+	# in the world, so the HUD can stay out of the way.
+	board = Node3D.new()
+	board.name = "Board"
+	board.position = Vector3(0, 0, -18.68)
+	add_child(board)
+	for team in 2:
+		var x := -4.6 if team == 0 else 4.6
+		var color: Color = ORANGE if team == 0 else BLUE
+		box(board, Vector3(x, 4.35, 0), Vector3(4.2, 2.5, .06), color)
+		board_scores.append(label3(board, "0", Vector3(x, 4.3, .06), 170, INK))
+		box(board, Vector3(x, 2.85, 0), Vector3(4.2, .26, .06), Color("0d1a26"))
+		var bar := box(board, Vector3(x, 2.85, .05), Vector3(4.2, .26, .06), color, .4)
+		board_bars.append(bar)
+	label3(board, "BALLKICKERS", Vector3(0, 5.3, .04), 34, Color("ffc94d"))
+	board_clock = label3(board, "2:00", Vector3(0, 4.15, .04), 110, CREAM)
+
+func update_board(sim, time: float) -> void:
+	for team in 2:
+		board_scores[team].text = str(sim.score[team])
+		var power: float = clampf(sim.power[team] / 100.0, 0, 1)
+		var bar: MeshInstance3D = board_bars[team]
+		var x := -4.6 if team == 0 else 4.6
+		bar.scale.x = maxf(.001, power)
+		# Both meters fill outwards from the clock.
+		bar.position.x = x + 2.1 * (1 - power) * (1 if team == 0 else -1)
+		var ready := power >= .99 and fmod(time, .5) < .3
+		bar.material_override = material(Color("ffc94d") if ready else (ORANGE if team == 0 else BLUE), .9 if ready else .4)
+	var seconds := int(ceil(sim.clock))
+	board_clock.text = "GOLDEN\nGOAL" if sim.overtime else "%d:%02d" % [seconds / 60, seconds % 60]
+	board_clock.font_size = 56 if sim.overtime else 110
+
+func build_bowl() -> void:
+	# Near stand, dugouts, corners and the outer wall that closes the stadium.
+	var seat := Color("344c68")
+	var shell := Color("2b4058")
+	for tier in 2:
+		box(self, Vector3(0, .2 + tier * .65, 16.4 + tier * 1.25), Vector3(49, 1 + tier * .6, 1.3), seat)
+	for side in [-1, 1]:
+		var color: Color = ORANGE if side == -1 else BLUE
+		for z in [-17.6, 17.2]:
+			box(self, Vector3(side * 27.6, .3, z), Vector3(5.2, 2.0, 5.0), shell)
+		box(self, Vector3(side * 31.2, .9, 0), Vector3(1.4, 4.4, 41), shell)
+		box(self, Vector3(side * 31.2, 3.16, 0), Vector3(1.5, .16, 41), color)
+		# Dugouts: a bench, a backrest and a few spare balls.
+		box(self, Vector3(side * 6.8, .25, 15.05), Vector3(4.2, .5, .62), color.darkened(.25))
+		box(self, Vector3(side * 6.8, .62, 15.32), Vector3(4.2, .75, .12), color)
+		for n in 3: sphere(self, Vector3(side * 6.8 + (n - 1) * .3 + .9, .14, 14.6), .14, CREAM)
+	box(self, Vector3(0, .6, -20.4), Vector3(64, 3.8, 1.2), shell)
+	box(self, Vector3(0, .5, 19.4), Vector3(64, 2.6, 1.2), shell)
+	# Floodlight towers in the corners lean over the pitch.
+	for x in [-1, 1]:
+		for z in [-1, 1]:
+			var base := Vector3(x * 33.5, -1.3, z * 22.5)
+			var top := Vector3(x * 32.2, 17, z * 21.4)
+			rod(self, base, top, .32, Color("d9dde0"))
+			for n in 5: rod(self, base.lerp(top, n / 5.0) + Vector3(-x * .3, 0, 0), base.lerp(top, n / 5.0 + .2) + Vector3(x * .3, 0, 0), .06, Color("d9dde0"))
+			var head := box(self, top + Vector3(-x * .6, .9, -z * .5), Vector3(4.2, 2.6, .35), INK)
+			head.rotation = Vector3(.45, atan2(-x, -z), 0)
+			for n in 6:
+				var lamp := box(self, Vector3.ZERO, Vector3(1.0, .9, .08), Color("fff6d8"), .9)
+				lamp.transform = head.transform * Transform3D(Basis.IDENTITY, Vector3((n % 3 - 1) * 1.25, (n / 3 - .5) * 1.15, .2))
+	build_scenery()
+
+func build_scenery() -> void:
+	# Far beyond the stands: a park ring of trees, rolling hills, a small skyline,
+	# clouds and the Ballkickers blimp. Only the replay cameras ever see it.
+	scenery = Node3D.new()
+	scenery.name = "Scenery"
+	add_child(scenery)
+	var random := RandomNumberGenerator.new()
+	random.seed = 61
+	var leaves := [Color("4f9a4a"), Color("5fae52"), Color("3f8a4a"), Color("78b850")]
+	for n in 150:
+		var angle := random.randf() * TAU
+		var reach := random.randf_range(1.0, 1.6)
+		var at := Vector3(cos(angle) * 44 * reach, -1.3, sin(angle) * 34 * reach)
+		# Keep the near side clear so no treetop pokes into the main camera.
+		if at.z > 0: at.z += 16
+		var size := random.randf_range(.8, 1.5)
+		rod(scenery, at, at + Vector3(0, 2.2 * size, 0), .22 * size, Color("7a5236"))
+		var crown := sphere(scenery, at + Vector3(0, 3.3 * size, 0), 1.7 * size, leaves[n % leaves.size()])
+		crown.scale = Vector3(1, 1.15, 1)
+		if n % 3 == 0: sphere(scenery, at + Vector3(.7, 4.4 * size, .3) * Vector3(size, 1, size), 1.1 * size, leaves[(n + 1) % leaves.size()])
+	for n in 9:
+		var angle := n / 9.0 * TAU + .3
+		var hill := sphere(scenery, Vector3(cos(angle) * 190, -14, sin(angle) * 170), random.randf_range(45, 70), Color("8bb56a") if n % 2 else Color("7aa864"))
+		hill.scale = Vector3(1.6, .55, 1)
+	var walls := [Color("e6d5be"), Color("c8d6df"), Color("f0b49a"), Color("a9c4d3"), Color("f3e3a1")]
+	for n in 46:
+		var angle := random.randf_range(-2.6, -.55)
+		var reach := random.randf_range(95, 125)
+		var height := random.randf_range(10, 34)
+		var width := random.randf_range(7, 14)
+		var at := Vector3(cos(angle) * reach, height / 2 - 1.3, sin(angle) * reach)
+		var block := box(scenery, at, Vector3(width, height, width * .8), walls[n % walls.size()])
+		block.rotation.y = -angle
+		var roof := box(scenery, at + Vector3(0, height / 2 + .3, 0), Vector3(width * .7, .6, width * .55), Color("5a6b7a"))
+		roof.rotation.y = -angle
+	for n in 14:
+		var at := Vector3(random.randf_range(-160, 160), random.randf_range(38, 60), random.randf_range(-170, 120))
+		if absf(at.x) < 60 and absf(at.z) < 60: at.z -= 90
+		for puff in 4:
+			var cloud := sphere(scenery, at + Vector3(puff * 5.0 - 7.5, sin(puff * 2.0) * 1.5, random.randf_range(-2, 2)), random.randf_range(4, 6.5), Color("ffffff"))
+			cloud.scale = Vector3(1.3, .6, 1)
+	batch_children(scenery)
+	blimp = Node3D.new()
+	scenery.add_child(blimp)
+	var hull := capsule(blimp, Vector3.ZERO, 3.2, 15, CREAM)
+	hull.rotation.z = PI / 2
+	box(blimp, Vector3(0, -3.3, 0), Vector3(3.2, 1, 1.5), INK)
+	for fin in 2: box(blimp, Vector3(-6.6, 0, 0), Vector3(2.2, .2, 5.4) if fin == 0 else Vector3(2.2, 5.4, .2), ORANGE)
+	for side in [-1, 1]:
+		var name_tag := label3(blimp, "BALLKICKERS", Vector3(0, .4, side * 3.25), 130, BLUE)
+		name_tag.rotation.y = 0.0 if side == 1 else PI
+		name_tag.double_sided = false
+
+func _process(dt: float) -> void:
+	if blimp == null: return
+	blimp_angle += dt * .025
+	blimp.position = Vector3(cos(blimp_angle) * 70, 30, sin(blimp_angle) * 55 - 10)
+	blimp.rotation.y = -blimp_angle - PI / 2
 
 func resize_pitch(teams: int) -> void:
 	pitch_size = teams
 	var factor: float = preload("res://src/match.gd").pitch_scale(teams)
 	crowd.layout(factor)
+	scenery.scale = Vector3.ONE * factor
+	board.position.z = -18.68 * factor
 	for entry in arena_nodes:
 		var node: GeometryInstance3D = entry.node
 		node.transform = entry.transform
@@ -200,11 +344,14 @@ func resize_pitch(teams: int) -> void:
 			node.scale.z *= factor
 
 func batch_static_geometry() -> void:
+	batch_children(self)
+
+func batch_children(parent: Node3D) -> void:
 	# Merge immutable stadium pieces by material. The net and stands no longer
 	# need hundreds of individual draw submissions, including their shadow pass.
 	var groups: Dictionary = {}
 	var sources: Array = []
-	for child in get_children():
+	for child in parent.get_children():
 		if child is MeshInstance3D and not child.get_meta("end_board", false):
 			var mat: Material = child.material_override
 			var key := str(mat.get_instance_id()) + ("goal_left" if child.position.x < 0 else "goal_right") if child.get_meta("goal", false) else str(mat.get_instance_id())
@@ -219,9 +366,9 @@ func batch_static_geometry() -> void:
 		merged.mesh = surface.commit()
 		merged.material_override = groups[mat][0].material_override
 		if "goal_" in mat: merged.set_meta("goal_side", -1 if "left" in mat else 1)
-		add_child(merged)
+		parent.add_child(merged)
 	for source in sources:
-		remove_child(source)
+		parent.remove_child(source)
 		source.queue_free()
 
 func make_player(index: int, keeper: bool = false) -> Node3D:

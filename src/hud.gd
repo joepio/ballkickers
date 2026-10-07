@@ -10,6 +10,7 @@ var bold: Font
 var scale_factor := 1.0
 var hit_rects: Array = []
 var control_icons: Array[Texture2D] = []
+var fade := 1.0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -39,15 +40,21 @@ func identity_color(p: Dictionary) -> Color:
 	return [CREAM, GOLD, Color("d6b5ff")][int(p.human / 2) % 3]
 
 func text(value: String, pos: Vector2, size: int, color: Color = CREAM, heavy: bool = false) -> void:
-	draw_string(bold if heavy else font, pos, value, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
+	draw_string(bold if heavy else font, pos, value, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(color, color.a * fade))
 
 func centered(value: String, y: float, size: int, color: Color = CREAM, heavy: bool = true) -> void:
 	var f: Font = bold if heavy else font
 	text(value, Vector2(800 - f.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x / 2, y), size, color, heavy)
 
+## Big centred text with a dark rim, readable on the pitch without a panel.
+func loud(value: String, y: float, size: int, color: Color) -> void:
+	var pos := Vector2(800 - bold.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x / 2, y)
+	draw_string_outline(bold, pos, value, HORIZONTAL_ALIGNMENT_LEFT, -1, size, maxi(6, size / 7), Color(INK, .92))
+	draw_string(bold, pos, value, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
+
 func panel(rect: Rect2, color: Color, radius: float = 14) -> void:
 	var style := StyleBoxFlat.new()
-	style.bg_color = color
+	style.bg_color = Color(color, color.a * fade)
 	style.corner_radius_top_left = int(radius)
 	style.corner_radius_top_right = int(radius)
 	style.corner_radius_bottom_left = int(radius)
@@ -55,7 +62,7 @@ func panel(rect: Rect2, color: Color, radius: float = 14) -> void:
 	draw_style_box(style, rect)
 
 func button_icon(letter: String, pos: Vector2, color: Color, radius: float = 16) -> void:
-	draw_circle(pos, radius, color)
+	draw_circle(pos, radius, Color(color, color.a * fade))
 	var width := bold.get_string_size(letter, HORIZONTAL_ALIGNMENT_LEFT, -1, int(radius * 1.15)).x
 	text(letter, pos + Vector2(-width / 2, radius * .42), int(radius * 1.15), INK, true)
 
@@ -68,21 +75,7 @@ func _draw() -> void:
 		draw_menu()
 		return
 	var s = game.sim
-	# One compact broadcast scoreboard; the pitch remains the hero.
-	panel(Rect2(548, 28, 504, 82), INK)
-	panel(Rect2(548, 28, 155, 82), ORANGE)
-	panel(Rect2(897, 28, 155, 82), BLUE)
-	text("TANGERINES", Vector2(564, 57), 17, INK, true)
-	text(str(s.score[0]), Vector2(606, 94), 34, INK, true)
-	text("BLUEBERRIES", Vector2(913, 57), 17, INK, true)
-	text(str(s.score[1]), Vector2(953, 94), 34, INK, true)
-	var seconds := int(ceil(s.clock))
-	centered("GOLDEN GOAL" if s.overtime else "%d:%02d" % [seconds / 60, seconds % 60], 80, 24 if s.overtime else 34)
-	for team in 2:
-		var x: float = 551 if team == 0 else 899
-		draw_rect(Rect2(x, 115, 151, 5), Color(0, 0, 0, .35))
-		draw_rect(Rect2(x, 115, 151 * s.power[team] / 100, 5), ORANGE if team == 0 else BLUE)
-		if s.power[team] >= 99: text("POWER SHOT READY", Vector2(x, 138), 12, GOLD, true)
+	# Score, clock and power meters are on the stadium screen; the HUD stays clear.
 	# World-anchored player indicators and stamina.
 	for i in s.players.size():
 		var p: Dictionary = s.players[i]
@@ -129,32 +122,18 @@ func _draw() -> void:
 				draw_circle(center + Vector2(5, -1), 2, INK)
 			text(str(p.name).left(16), center + Vector2(31, 7), 17, color, true)
 			if not s.dual_control: draw_texture_rect(control_icons[3], Rect2(center + Vector2(162, -12), Vector2(24, 24)), false, identity_color(p))
-	# Readable short controls, no permanent instruction panel covering the arena.
-	panel(Rect2(440, 841, 720, 40), Color(.06, .12, .17, .87), 20)
-	if game.team_size > 1:
-		text("L STICK  MOVE / AIM", Vector2(467, 867), 16, CREAM, true)
-		text("LB / RB  SHOOT / TACKLE", Vector2(808, 867), 16, CREAM, true)
-	elif game.dual_stick:
-		text("L STICK + LB", Vector2(467, 867), 16, CREAM, true)
-		text("MOVE · SHOOT / TACKLE", Vector2(632, 867), 14)
-		text("R STICK + RB", Vector2(975, 867), 16, GOLD, true)
-	else:
-		button_icon("X", Vector2(467, 861), BLUE, 12)
-		text("SHOOT / TACKLE", Vector2(486, 867), 15)
-		button_icon("A", Vector2(660, 861), Color("b9e76a"), 12)
-		text("PASS", Vector2(679, 867), 15)
-		text("HOLD X: CHARGE", Vector2(755, 867), 14)
-		text("RT  SPRINT     LB  SWITCH", Vector2(895, 867), 15)
-	text("BALLKICKERS", Vector2(30, 870), 18, CREAM, true)
+	# Controls are a reminder for the opening seconds, then they get out of the way.
+	var hint := clampf((9.0 - s.elapsed) / 1.5, 0, 1)
+	if hint > 0 and not game.replay_showing():
+		draw_hints(hint)
 	if game.replay_showing(): pass
 	elif s.phase == "kickoff":
-		centered("GET READY", 369, 21, GOLD)
-		centered(str(maxi(1, int(ceil(s.phase_time)))), 479, 100)
+		loud("GET READY", 380, 22, GOLD)
+		loud(str(maxi(1, int(ceil(s.phase_time)))), 470, 84, CREAM)
 	elif s.phase == "goal":
 		var color: Color = ORANGE if s.events_team == 0 else BLUE
-		panel(Rect2(507, 335, 586, 172), INK, 24)
-		centered("GOOOAL!", 429, 73, color)
-		centered("THE TANGERINES SCORE" if s.events_team == 0 else "THE BLUEBERRIES SCORE", 475, 22)
+		loud("GOOOAL!", 430, 96, color)
+		loud("TANGERINES" if s.events_team == 0 else "BLUEBERRIES", 474, 24, CREAM)
 	elif s.phase == "result":
 		panel(Rect2(460, 274, 680, 328), INK, 24)
 		centered("FULL TIME", 330, 20, GOLD)
@@ -180,6 +159,25 @@ func _draw() -> void:
 	draw_replay(s)
 	if game.show_stats:
 		text("%d FPS  ·  %d DRAWS" % [Engine.get_frames_per_second(), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)], Vector2(25, 38), 17, INK)
+
+func draw_hints(alpha: float) -> void:
+	fade = alpha
+	panel(Rect2(440, 846, 720, 36), Color(.06, .12, .17, .55), 18)
+	if game.team_size > 1:
+		text("L STICK  MOVE / AIM", Vector2(467, 867), 16, CREAM, true)
+		text("LB / RB  SHOOT / TACKLE", Vector2(808, 867), 16, CREAM, true)
+	elif game.dual_stick:
+		text("L STICK + LB", Vector2(467, 867), 16, CREAM, true)
+		text("MOVE · SHOOT / TACKLE", Vector2(632, 867), 14)
+		text("R STICK + RB", Vector2(975, 867), 16, GOLD, true)
+	else:
+		button_icon("X", Vector2(467, 861), BLUE, 12)
+		text("SHOOT / TACKLE", Vector2(486, 867), 15)
+		button_icon("A", Vector2(660, 861), Color("b9e76a"), 12)
+		text("PASS", Vector2(679, 867), 15)
+		text("HOLD X: CHARGE", Vector2(755, 867), 14)
+		text("RT  SPRINT     LB  SWITCH", Vector2(895, 867), 15)
+	fade = 1.0
 
 func draw_menu() -> void:
 	draw_rect(Rect2(0, 0, 615, 900), Color(.06, .12, .18, .96))
@@ -212,8 +210,6 @@ func draw_menu() -> void:
 		text("WASD move    J shoot / tackle    K pass", Vector2(65, 811), 16, CREAM)
 		text("SHIFT sprint    SPACE switch    F11 fullscreen", Vector2(65, 838), 16, CREAM)
 	text("A / ENTER  START     ↑ ↓  SELECT     ← →  CHANGE", Vector2(65, 880), 14, GOLD)
-	panel(Rect2(1235, 33, 323, 40), INK, 20)
-	text("SUNSET SOCIAL CLUB", Vector2(1262, 60), 18, CREAM, true)
 
 func draw_replay(s) -> void:
 	var r = game.replay
