@@ -17,7 +17,13 @@ var cine := Camera3D.new()
 var cine_shot := ""
 var coaches: Array = []
 var follow := Vector2.ZERO
-const CAMERA_PITCH := deg_to_rad(38.0)
+var zoom := 1.0
+const CAMERA_PITCH := deg_to_rad(47.0)
+const CAMERA_FOV := 30.0
+const CAMERA_DISTANCE := 61.0
+const CAMERA_AIM_Z := -.3
+## How far the rig slides compared to where it aims; the rest is a slight turn.
+const CAMERA_TRUCK := .6
 var athletes: Array = []
 var keeper_nodes: Array = []
 var ball_node: Node3D
@@ -107,9 +113,8 @@ func _ready() -> void:
 	add_child(cine)
 	cine.fov = 34
 	cine.far = 220
-	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	camera.size = 33
-	camera.far = 160
+	camera.fov = CAMERA_FOV
+	camera.far = 260
 	camera.current = true
 	aim_camera(Vector3(-9, 0, -1), 1.0)
 	var layer := CanvasLayer.new()
@@ -130,7 +135,7 @@ func _ready() -> void:
 		sim.setup(0, false, 725, 120, dual_stick, team_size)
 		sim.chaos.forced = chaos_force
 		sim.power = [100.0, 100.0]
-		aim_camera(Vector3(0, 0, -1), 1.0)
+		aim_camera(Vector3(0, 0, CAMERA_AIM_Z), 1.0)
 	if party.managed:
 		menu = false
 		paused = true
@@ -329,24 +334,29 @@ func _process(dt: float) -> void:
 		stadium.update_board(sim, run_time)
 		stadium.crowd.update(dt, menu or (sim.phase == "play" and not sim.chaos.active() and hype_free()))
 	var factor := Match.pitch_scale(team_size)
-	var view_size := 31.5 * factor
-	# The broadcast camera drifts a little with the ball, never far enough to
-	# hide a goal, and holds still on the menu.
+	# A broadcast camera high on the near stand: it pans and turns with the ball,
+	# leans in a touch when the ball nears a goal or after one, and always keeps
+	# the whole pitch in shot. The menu gets a slow, still establishing view.
 	var drift := Vector2.ZERO
+	var push := 0.0
 	if not menu:
-		drift = Vector2(clampf(sim.ball.x * .14, -2.6, 2.6), clampf(sim.ball.z * .08, -.8, .8)) * factor
-	follow = follow.lerp(drift, 1 - exp(-dt * 1.6))
-	var focus := Vector3(-9.0 * factor if menu else follow.x, 0, -1.4 + follow.y)
+		drift = Vector2(clampf(sim.ball.x * .16, -3.2, 3.2), clampf(sim.ball.z * .1, -1.0, 1.0)) * factor
+		push = smoothstep(.55, .95, absf(sim.ball.x) / sim.half_x) * .035
+		if sim.phase == "goal": push = .06
+	follow = follow.lerp(drift, 1 - exp(-dt * 1.4))
+	zoom = lerpf(zoom, 1.0 - push, 1 - exp(-dt * 1.2))
+	var focus := Vector3(-9.0 * factor if menu else follow.x, 0, CAMERA_AIM_Z * factor + follow.y)
 	var rate := 5.0
 	if replay_showing(): direct_replay(dt)
 	elif not camera.current:
 		camera.current = true
 		cine_shot = ""
-	camera.size = lerpf(camera.size, view_size, 1 - exp(-dt * rate))
 	var offset := Vector3(sin(run_time * 67) * shake * .12, 0, cos(run_time * 79) * shake * .1)
-	var view := camera_offset(factor)
-	camera.position = camera.position.lerp(focus + view + offset, 1 - exp(-dt * rate))
-	camera.look_at(camera.position - view)
+	var view := camera_offset(factor) * zoom
+	# The rig moves less than its aim, so following play turns the camera a little.
+	var rig := Vector3(focus.x * CAMERA_TRUCK, 0, focus.z)
+	camera.position = camera.position.lerp(rig + view + offset, 1 - exp(-dt * rate))
+	camera.look_at(focus + offset)
 	hud.queue_redraw()
 	if not capture_done and not capture_path.is_empty() and run_time >= capture_at:
 		capture_done = true
@@ -492,10 +502,10 @@ func express(body: Node3D, mood: String, t: float, kicking: bool) -> void:
 ## Where the main camera sits relative to the point it looks at: a little lower
 ## than straight-down isometric, so the players and stands read as 3D.
 func camera_offset(factor: float) -> Vector3:
-	return Vector3(0, sin(CAMERA_PITCH), cos(CAMERA_PITCH)) * 44.0 * factor
+	return Vector3(0, sin(CAMERA_PITCH), cos(CAMERA_PITCH)) * CAMERA_DISTANCE * factor
 
 func aim_camera(focus: Vector3, factor: float) -> void:
-	camera.position = focus + camera_offset(factor)
+	camera.position = Vector3(focus.x * CAMERA_TRUCK, 0, focus.z) + camera_offset(factor)
 	camera.look_at(focus)
 
 func direct_replay(dt: float) -> void:

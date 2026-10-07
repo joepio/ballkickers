@@ -87,8 +87,9 @@ both power meters (gold when a power shot is ready). The on-screen HUD keeps
 only player markers, a fading controls reminder at kick-off and the big moments.
 Around the bowl are dugouts, corner floodlight towers, a park with trees, hills,
 a small skyline, clouds and a slow Ballkickers blimp, which the replay close-ups
-show off. The broadcast camera sits a little lower than isometric and drifts
-gently with the ball without ever losing a goal.
+show off. The main camera is a perspective broadcast camera high on the near
+stand: it pans and turns slightly with the ball, leans in a touch near a goal and
+after one, and always keeps the whole pitch in shot.
 
 ## Goal replays
 
@@ -171,8 +172,8 @@ suppression and dedicated goal/whistle voices. `tests/audio.gd` checks playback.
 repeatable visual captures and frame statistics. Tests use fixed seeds.
 
 Static stadium and scenery geometry is combined by material; 520 spectators use
-one MultiMesh per body part. A single orthographic camera scales to keep the whole
-pitch visible. No downloaded visual art, third-party character assets, or heavyweight postprocessing.
+one MultiMesh per body part. The perspective camera backs off with the pitch size to keep the
+whole pitch visible. No downloaded visual art, third-party character assets, or heavyweight postprocessing.
 Football and whistle recordings by Joseph SARDIN / BigSoundBank and soft impacts
 by Kenney are CC0; the goal melody and power accents are original.
 Fonts: Lilita One and Fredoka, both SIL Open Font License (`third_party/FONTS-OFL.txt`).

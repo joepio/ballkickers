@@ -27,9 +27,7 @@ func stage(shot: int) -> void:
 	game.hit_stop = 0
 	game.notice_time = 0
 	var factor: float = game.sim.pitch_scale(game.team_size)
-	game.camera.position = Vector3(0,30 * factor,31 * factor)
-	game.camera.size = 33 * factor
-	game.camera.look_at(Vector3(0,0,-1))
+	game.aim_camera(Vector3(0, 0, game.CAMERA_AIM_Z * factor), factor)
 	if shot == 1:
 		game.sim.players[0].pos = Vector2(-1,0)
 		game.sim.players[0].face = Vector2.RIGHT

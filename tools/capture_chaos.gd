@@ -36,8 +36,7 @@ func run() -> void:
 	game.sim.phase = "play"
 	game.sim.chaos.forced = kind
 	var factor: float = game.sim.pitch_scale(teams)
-	game.camera.size = 33 * factor
-	game.camera.position = Vector3(0, 30 * factor, 31 * factor)
+	game.aim_camera(Vector3(0, 0, game.CAMERA_AIM_Z * factor), factor)
 	await process_frame
 	var dt := 1.0 / 60
 	var t := 0.0
