@@ -85,9 +85,10 @@ midfield. A few superfans hold signs ("HI MUM!") or wave big flags.
 The stadium screen behind the back stand is the scoreboard: score, clock and
 both power meters (gold when a power shot is ready). The on-screen HUD keeps
 only player markers, a fading controls reminder at kick-off and the big moments.
-Around the bowl are dugouts, corner floodlight towers, a park with trees, hills,
-a small skyline, clouds and a slow Ballkickers blimp, which the replay close-ups
-show off. The main camera is a perspective broadcast camera high on the near
+Around the bowl are dugouts, corner floodlight towers that each cast their own
+shadow, two camera operators walking the far touchline to keep the ball in frame,
+food trucks with queues, car parks, the team buses, flags, a park with trees,
+hills, a small skyline, clouds and a slow Ballkickers blimp. The main camera is a perspective broadcast camera high on the near
 stand: it pans and turns slightly with the ball, leans in a touch near a goal and
 after one, and always keeps the whole pitch in shot.
 

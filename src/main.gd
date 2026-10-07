@@ -16,6 +16,7 @@ var camera := Camera3D.new()
 var cine := Camera3D.new()
 var cine_shot := ""
 var coaches: Array = []
+var cameramen: Array = []
 var follow := Vector2.ZERO
 var zoom := 1.0
 const CAMERA_PITCH := deg_to_rad(47.0)
@@ -99,6 +100,7 @@ func _ready() -> void:
 		keeper.get_node("Marker").visible = false
 		keeper_nodes.append(keeper)
 	for team in 2: coaches.append(stadium.make_coach(team))
+	for index in 2: cameramen.append(stadium.make_cameraman(index))
 	ball_node = stadium.make_ball()
 	chaos_view.stadium = stadium
 	chaos_view.game = self
@@ -436,6 +438,7 @@ func update_visuals(dt: float) -> void:
 		stars.rotation.y = run_time * 7
 	chaos_view.update(sim, dt)
 	update_coaches(dt)
+	update_cameramen(dt)
 	ball_node.position = ball_node.position.lerp(sim.ball, 1 - exp(-dt * 36))
 	ball_node.rotate_x(sim.ball_velocity.z * dt * 1.6)
 	ball_node.rotate_z(-sim.ball_velocity.x * dt * 1.6)
@@ -562,6 +565,31 @@ func clear_view(index: int, at: Vector2, side: float) -> Vector3:
 			best_gap = gap
 			best = Vector3(from.x, 3.3, from.y)
 	return best
+
+func update_cameramen(dt: float) -> void:
+	# Two operators share the far touchline, one per half, and walk to stay level
+	# with the ball while turning their camera onto it.
+	var lane: float = -(sim.half_z + 1.35)
+	for index in cameramen.size():
+		var man: Node3D = cameramen[index]
+		var side := -1.0 if index == 0 else 1.0
+		var low: float = -sim.half_x + 3.0 if index == 0 else 3.0
+		var high: float = -3.0 if index == 0 else sim.half_x - 3.0
+		var target := Vector3(clampf(sim.ball.x, low, high), 0, lane)
+		if man.position.distance_to(target) > 14: man.position = target
+		var step := target.x - man.position.x
+		man.position = man.position.move_toward(target, dt * 4.5)
+		var body: Node3D = man.get_node("Body")
+		var to_ball := Vector2(sim.ball.x - man.position.x, sim.ball.z - man.position.z)
+		body.rotation.y = lerp_angle(body.rotation.y, atan2(to_ball.x, to_ball.y), 1 - exp(-dt * 7))
+		var walking := absf(step) > .2
+		var swing := sin(run_time * 10 + side) * (.55 if walking else 0.0)
+		body.get_node("LegL").rotation.x = swing
+		body.get_node("LegR").rotation.x = -swing
+		body.position.y = absf(swing) * .06
+		# Tilt the camera down towards the ball.
+		var camera_node: Node3D = body.get_node("Camera")
+		camera_node.rotation.x = clampf(atan2(1.8 - sim.ball.y, to_ball.length()), 0, .5)
 
 func update_coaches(dt: float) -> void:
 	for team in coaches.size():

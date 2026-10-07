@@ -10,6 +10,7 @@ const INK = Color("182d41")
 const NEUTRAL = [Color("ffc94d"), Color("ad85cc"), Color("6ccf7a"), Color("e84d6b"), CREAM, Color("4f8fe0")]
 const SKINS = [Color("ffe0bd"), Color("f2c29b"), Color("d9a074"), Color("b47a50"), Color("8a5634"), Color("5e3a22")]
 const HAIR = [Color("2b1d14"), Color("5a3a1e"), Color("c9503a"), Color("e8c35a"), Color("9a9a9a"), Color("1b1b2a")]
+const SIZE := 1.35
 const SIGNS = ["HI MUM!", "TANGERINES 4 LIFE", "BLUEBERRY TILL I DIE", "MARRY ME BUBS", "I SKIPPED WORK", "MORE GOALS PLS", "ZIG IS MY HERO", "WHO IS THE REF?"]
 const SHADER = """shader_type spatial;
 uniform float cheer_0 = 0.0;
@@ -29,7 +30,7 @@ void vertex() {
 	float wave = wave_u < -0.5 ? 0.0 : exp(-pow((u - wave_u) * 16.0, 2.0));
 	float up = clamp(max(mine, hype * (0.35 + energy * 0.65)), 0.0, 1.0);
 	float lift = 0.035 * sin(TIME * (1.3 + energy * 2.2) + phase)
-		+ up * abs(sin(TIME * (6.0 + energy * 4.0) + phase)) * 0.42
+		+ up * abs(sin(TIME * (6.0 + energy * 4.0) + phase)) * 0.62
 		+ wave * 0.4 - gloom * 0.14;
 	if (abs(side) > 0.5) {
 		float raise = max(max(up, wave), gloom * 0.95);
@@ -168,7 +169,11 @@ func layout(factor: float) -> void:
 		var pos: Vector3 = s.pos
 		pos.x *= factor
 		pos.z *= factor
-		var basis := Basis(Vector3.UP, s.facing).scaled(Vector3.ONE * s.scale)
+		# Fans are drawn a size up from the athletes so the stands read from the
+		# broadcast camera; they stand a little taller to keep their feet on the tier.
+		var size: float = s.scale * SIZE
+		pos.y += .39 * (size - 1.0)
+		var basis := Basis(Vector3.UP, s.facing).scaled(Vector3.ONE * size)
 		var person := Transform3D(basis, pos)
 		var data := Color(s.ring, s.team, s.energy, .5)
 		for key in ["body", "head", "eyes"]:
@@ -193,7 +198,8 @@ func layout(factor: float) -> void:
 	for prop in props:
 		var node: Node3D = prop.node
 		var seat: Dictionary = seats[prop.seat]
-		node.position = Vector3(seat.pos.x * factor, seat.pos.y, seat.pos.z * factor)
+		node.position = Vector3(seat.pos.x * factor, seat.pos.y + .39 * (SIZE - 1.0), seat.pos.z * factor)
+		node.scale = Vector3.ONE * SIZE
 
 func build_props(random: RandomNumberGenerator) -> void:
 	# A few superfans: hand-written signs on the back stand and big flags on the sides.
@@ -273,7 +279,7 @@ func event(type: String, team: int = -1) -> void:
 func update(dt: float, quiet: bool) -> void:
 	time += dt
 	for team in 2:
-		cheer[team] = move_toward(cheer[team], 0.0, dt / 3.5)
+		cheer[team] = move_toward(cheer[team], 0.0, dt / 5.0)
 		gloom[team] = move_toward(gloom[team], 0.0, dt / 4.0)
 	hype = move_toward(hype, 0.0, dt / 1.6)
 	# Mexican wave when the game is calm: it rolls around the ring every so often.

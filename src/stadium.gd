@@ -8,6 +8,7 @@ var pitch_size := 1
 var mats: Dictionary = {}
 var crowd: Node3D
 var scenery: Node3D
+var floodlights: Array = []
 var board: Node3D
 var board_scores: Array = []
 var board_bars: Array = []
@@ -128,7 +129,7 @@ func build() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-58, -34, 0)
 	sun.light_color = Color("ffe4b5")
-	sun.light_energy = .72
+	sun.light_energy = .62
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 100
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
@@ -178,7 +179,7 @@ func build() -> void:
 		for i in 4: box(self, Vector3(x - 1.3 + i * .86, 9.15, -17.31), Vector3(.55, .4, .06), Color("fff3cb"), .8)
 	for x in [-15, 15]:
 		box(self, Vector3(x, 5.25, -18), Vector3(11, .45, 4.8), Color("2b4058"))
-		box(self, Vector3(x, 5.25, -15.55), Vector3(11, .5, .12), ORANGE if x < 0 else BLUE)
+		box(self, Vector3(x, 5.25, -15.55), Vector3(11, .5, .12), Color("d9dde0"))
 		for xx in [-4.5, 4.5]: rod(self, Vector3(x + xx, 0, -19), Vector3(x + xx, 5.1, -19), .15, INK)
 	box(self, Vector3(0, 4.3, -19), Vector3(14.2, 3.6, .55), INK)
 	box(self, Vector3(0, 6.2, -19), Vector3(14.5, .16, .65), Color("ffc94d"))
@@ -241,7 +242,7 @@ func build_bowl() -> void:
 		for z in [-17.6, 17.2]:
 			box(self, Vector3(side * 27.6, .3, z), Vector3(5.2, 2.0, 5.0), shell)
 		box(self, Vector3(side * 31.2, .9, 0), Vector3(1.4, 4.4, 41), shell)
-		box(self, Vector3(side * 31.2, 3.16, 0), Vector3(1.5, .16, 41), color)
+		box(self, Vector3(side * 31.2, 3.16, 0), Vector3(1.5, .16, 41), Color("d9dde0"))
 		# Dugouts: a bench, a backrest and a few spare balls.
 		box(self, Vector3(side * 6.8, .25, 15.05), Vector3(4.2, .5, .62), color.darkened(.25))
 		box(self, Vector3(side * 6.8, .62, 15.32), Vector3(4.2, .75, .12), color)
@@ -260,7 +261,29 @@ func build_bowl() -> void:
 			for n in 6:
 				var lamp := box(self, Vector3.ZERO, Vector3(1.0, .9, .08), Color("fff6d8"), .9)
 				lamp.transform = head.transform * Transform3D(Basis.IDENTITY, Vector3((n % 3 - 1) * 1.25, (n / 3 - .5) * 1.15, .2))
+			# Each tower throws a real light, so everyone on the pitch gets the
+			# classic four-way floodlight shadow.
+			var flood := SpotLight3D.new()
+			flood.light_color = Color("fff1d6")
+			flood.light_energy = .28
+			flood.spot_range = 80
+			flood.spot_angle = 30
+			flood.spot_attenuation = .2
+			flood.shadow_enabled = true
+			flood.shadow_bias = .12
+			flood.shadow_normal_bias = 2.5
+			flood.shadow_opacity = 1.0
+			add_child(flood)
+			floodlights.append({"light": flood, "at": head.position})
+	place_floodlights(1.0)
 	build_scenery()
+
+func place_floodlights(factor: float) -> void:
+	for entry in floodlights:
+		var light: SpotLight3D = entry.light
+		var at: Vector3 = entry.at
+		light.position = Vector3(at.x * factor, at.y, at.z * factor)
+		light.look_at(Vector3(0, 0, 0))
 
 func build_scenery() -> void:
 	# Far beyond the stands: a park ring of trees, rolling hills, a small skyline,
@@ -303,6 +326,7 @@ func build_scenery() -> void:
 		for puff in 4:
 			var cloud := sphere(scenery, at + Vector3(puff * 5.0 - 7.5, sin(puff * 2.0) * 1.5, random.randf_range(-2, 2)), random.randf_range(4, 6.5), Color("ffffff"))
 			cloud.scale = Vector3(1.3, .6, 1)
+	build_outskirts(random)
 	batch_children(scenery)
 	blimp = Node3D.new()
 	scenery.add_child(blimp)
@@ -315,6 +339,116 @@ func build_scenery() -> void:
 		name_tag.rotation.y = 0.0 if side == 1 else PI
 		name_tag.double_sided = false
 
+func build_outskirts(random: RandomNumberGenerator) -> void:
+	# Match-day life right outside the walls: food trucks behind the main stand,
+	# car parks on both sides, the team buses, flags and lamp posts on the plaza.
+	var paint := [Color("e84d6b"), Color("ffc94d"), Color("6ccf7a"), Color("ad85cc"), Color("f3f0e6"), Color("4f8fe0"), Color("2b2f3a"), Color("d96c3f")]
+	var trucks := [["HOT DOGS", Color("ffc94d")], ["CHIPS", Color("e84d6b")], ["ICE CREAM", Color("f7b6d0")], ["COFFEE", Color("8a5a3c")], ["PIZZA", Color("6ccf7a")]]
+	for n in trucks.size():
+		var at := Vector3(-17 + n * 8.5, -1.22, -25.5)
+		var color: Color = trucks[n][1]
+		box(scenery, at + Vector3(0, 1.45, 0), Vector3(5.2, 2.6, 2.4), color)
+		box(scenery, at + Vector3(2.9, 1.0, 0), Vector3(1.6, 1.7, 2.3), color.darkened(.15))
+		box(scenery, at + Vector3(3.3, 1.45, 0), Vector3(.9, .7, 2.2), Color("bfe3ef"))
+		box(scenery, at + Vector3(-.4, 1.65, 1.21), Vector3(3.2, 1.0, .05), INK)
+		for stripe in 6:
+			box(scenery, at + Vector3(-1.9 + stripe * .6, 2.55, 1.6), Vector3(.6, .1, .9), CREAM if stripe % 2 == 0 else color.darkened(.2))
+		for wheel in [-1.6, 2.6]:
+			for side in [-1, 1]: sphere(scenery, at + Vector3(wheel, .3, side * 1.1), .38, Color("1c1f26"))
+		var sign := label3(scenery, trucks[n][0], at + Vector3(-.4, 3.25, .4), 60, color.darkened(.45) if n == 2 else CREAM)
+		sign.outline_size = 10
+		sign.outline_modulate = INK
+		# A short queue of hungry fans.
+		for q in random.randi_range(1, 3):
+			var fan := at + Vector3(-.4 + random.randf_range(-.4, .4), 0, 2.4 + q * 1.1)
+			capsule(scenery, fan + Vector3(0, .75, 0), .32, 1.1, paint[random.randi_range(0, paint.size() - 1)])
+			sphere(scenery, fan + Vector3(0, 1.55, 0), .3, crowd_skin(random))
+	for side in [-1, 1]:
+		# Car parks: asphalt, white bays and rows of little cars.
+		box(scenery, Vector3(side * 47, -1.2, 0), Vector3(14, .08, 40), Color("4d545c"))
+		for row in 2:
+			var x: float = side * (42.5 + row * 9)
+			for bay in 12:
+				var z := -16.5 + bay * 3.0
+				box(scenery, Vector3(x, -1.14, z - 1.5), Vector3(4.6, .02, .12), Color("e8e8e0"))
+				if random.randf() < .78:
+					var car: Color = paint[random.randi_range(0, paint.size() - 1)]
+					var nose: int = -side if row == 0 else side
+					var at := Vector3(x + nose * .1, -1.16, z)
+					box(scenery, at + Vector3(0, .55, 0), Vector3(3.6, .75, 1.7), car)
+					box(scenery, at + Vector3(-nose * .3, 1.15, 0), Vector3(1.9, .6, 1.5), car.lightened(.15))
+					box(scenery, at + Vector3(-nose * .3, 1.15, 0), Vector3(1.95, .4, 1.55), Color("2c3e50"))
+					for wheel in [-1.1, 1.1]:
+						for w in [-1, 1]: sphere(scenery, at + Vector3(wheel, .3, w * .82), .32, Color("1c1f26"))
+		# Lamp posts along the car park.
+		for z in [-18, -6, 6, 18]:
+			rod(scenery, Vector3(side * 38.2, -1.3, z), Vector3(side * 38.2, 5, z), .12, Color("d9dde0"))
+			box(scenery, Vector3(side * 38.2, 5.1, z), Vector3(1.2, .25, .5), Color("d9dde0"))
+	# The team buses, parked by the players' entrance.
+	for team in 2:
+		var color: Color = ORANGE if team == 0 else BLUE
+		var at := Vector3(-30 + team * 60, -1.22, -27.5)
+		box(scenery, at + Vector3(0, 1.9, 0), Vector3(11, 3.2, 2.8), CREAM)
+		box(scenery, at + Vector3(0, 1.3, 0), Vector3(11.05, 1.0, 2.85), color)
+		box(scenery, at + Vector3(0, 2.6, 0), Vector3(10.2, .9, 2.9), Color("2c3e50"))
+		for wheel in [-3.6, 3.4]:
+			for side in [-1, 1]: sphere(scenery, at + Vector3(wheel, .45, side * 1.3), .5, Color("1c1f26"))
+	# A row of flags along the plaza.
+	for n in 10:
+		var at := Vector3(-34 + n * 7.5, -1.3, -22.6)
+		rod(scenery, at, at + Vector3(0, 7, 0), .08, Color("d9dde0"))
+		box(scenery, at + Vector3(.75, 6.3, 0), Vector3(1.5, 1.0, .05), paint[n % 6])
+
+func crowd_skin(random: RandomNumberGenerator) -> Color:
+	var skins := [Color("ffe0bd"), Color("f2c29b"), Color("d9a074"), Color("b47a50"), Color("8a5634"), Color("5e3a22")]
+	return skins[random.randi_range(0, skins.size() - 1)]
+
+func make_cameraman(index: int) -> Node3D:
+	# Touchline camera operators in hi-vis bibs with a shoulder camera and a red
+	# tally light, who walk the far side keeping the ball in frame.
+	var root := Node3D.new()
+	root.name = "Cameraman%d" % index
+	add_child(root)
+	root.scale = Vector3.ONE * 1.15
+	var body := Node3D.new()
+	body.name = "Body"
+	root.add_child(body)
+	var skin: Color = [Color("d9a074"), Color("ffe0bd")][index % 2]
+	capsule(body, Vector3(0, .95, 0), .4, 1.05, Color("2b2f3a"))
+	var bib := capsule(body, Vector3(0, 1.05, 0), .42, .7, Color("d7f24a"))
+	bib.scale = Vector3(1, 1, 1.02)
+	box(body, Vector3(0, 1.05, .41), Vector3(.5, .06, .04), Color("eef3f5"))
+	box(body, Vector3(0, .9, .41), Vector3(.5, .06, .04), Color("eef3f5"))
+	sphere(body, Vector3(0, 1.7, 0), .42, skin)
+	var cap := sphere(body, Vector3(0, 1.93, -.02), .4, Color("1c1f26"))
+	cap.scale = Vector3(1.05, .45, 1.05)
+	box(body, Vector3(0, 1.88, -.42), Vector3(.46, .05, .24), Color("1c1f26"))
+	ring(body, Vector3(0, 1.74, 0), .44, .05, Color("1c1f26")).rotation.z = PI / 2
+	for side in [-1, 1]:
+		sphere(body, Vector3(side * .44, 1.72, 0), .12, Color("1c1f26"))
+		var eye := sphere(body, Vector3(side * .14, 1.74, .38), .05, INK)
+		eye.scale = Vector3(.9, 1.4, .6)
+		var leg := Node3D.new()
+		leg.name = "LegL" if side == -1 else "LegR"
+		leg.position = Vector3(side * .2, .48, 0)
+		body.add_child(leg)
+		capsule(leg, Vector3(0, -.2, 0), .15, .5, Color("3a4250"))
+		capsule(leg, Vector3(0, -.42, .1), .17, .45, INK).rotation.x = PI / 2
+	# The camera rides on the right shoulder and points where the body faces.
+	var cam := Node3D.new()
+	cam.name = "Camera"
+	cam.position = Vector3(.42, 1.62, .15)
+	body.add_child(cam)
+	box(cam, Vector3(0, 0, 0), Vector3(.32, .4, .85), Color("1c1f26"))
+	box(cam, Vector3(0, .25, -.05), Vector3(.06, .12, .5), Color("1c1f26"))
+	var lens := rod(cam, Vector3(0, 0, .4), Vector3(0, 0, .75), .14, Color("2f3642"))
+	lens.name = "Lens"
+	sphere(cam, Vector3(0, 0, .76), .1, Color("7fc6e8"))
+	box(cam, Vector3(0, .24, .25), Vector3(.08, .06, .08), Color("ff3b3b"), 2.0)
+	var arm := capsule(body, Vector3(.42, 1.35, .1), .13, .5, Color("2b2f3a"))
+	arm.rotation.x = -1.2
+	return root
+
 func _process(dt: float) -> void:
 	if blimp == null: return
 	blimp_angle += dt * .025
@@ -326,6 +460,7 @@ func resize_pitch(teams: int) -> void:
 	var factor: float = preload("res://src/match.gd").pitch_scale(teams)
 	crowd.layout(factor)
 	scenery.scale = Vector3.ONE * factor
+	place_floodlights(factor)
 	board.position.z = -18.68 * factor
 	for entry in arena_nodes:
 		var node: GeometryInstance3D = entry.node
