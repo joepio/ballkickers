@@ -1,6 +1,6 @@
 # Publishing to GameNight
 
-Successful trusted builds can upload directly to GameNight using the pinned public publishing action. Pull requests never receive publishing credentials. Builds go to **preview**; a developer tests the build and selects **Publish to gamers** in the portal. Existing releases remain available for rollback.
+Successful trusted builds can upload directly to GameNight through GameNight's reusable publishing workflow (`.github/workflows/publish-gamenight.yml`). Pull requests never receive publishing credentials. Builds go to **preview**; a developer tests the build and selects **Publish to gamers** in the portal. Existing releases remain available for rollback.
 
 1. Sign in to the [developer portal](https://gamenight.ontola.io/developers/publishing). Ask the GameNight operator to register ownership of an existing catalog game; new games start with an owned submission.
 2. Create an upload-only API key for this game. Save the one-time secret immediately.

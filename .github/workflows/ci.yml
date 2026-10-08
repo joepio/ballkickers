@@ -8,6 +8,8 @@ on:
 permissions:
   contents: read
 jobs:
+  gamenight-sdk:
+    uses: ontola/gamenight/.github/workflows/godot-sdk-check.yml@main
   windows:
     runs-on: windows-latest
     timeout-minutes: 20

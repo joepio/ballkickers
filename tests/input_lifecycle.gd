@@ -37,7 +37,7 @@ func run() -> void:
 	check(not game.read_dual_control(0, 0).tackle and not game.read_dual_control(0, 1).tackle, "held shoulders only trigger a single dash edge per half")
 	check(not left.sprint and not right.sprint and not left.get("pass"), "dual inputs ignore sprint and pass")
 	check(game.sim.players[0].name == "Marsh" and game.sim.players[1].name == "Mallow", "profiles keyed by player ID")
-	game.party.frame_time -= 300
+	root.get_node("GameNight")._frame_at -= 300
 	check(game.read_control(0).move == Vector2.ZERO and not game.read_control(0).shoot, "stale controller input becomes neutral")
 	check(game.read_dual_control(0, 0).move == Vector2.ZERO and not game.read_dual_control(0, 1).shoot, "both dual halves neutralize on stale input")
 	game.party.handle({"type": "controller_frame", "controllers": [{"controller": "opaque:A", "axes": [32767,0,0,0,0,0], "buttons": 0}]})
@@ -84,7 +84,7 @@ func run() -> void:
 	for seat in 6:
 		var control: Dictionary = game.read_single_control(seat)
 		check(control.move.x > .9 and control.shoot, "seat %d uses left stick and shoulders for one unit" % seat)
-	game.party.frame_time -= 300
+	root.get_node("GameNight")._frame_at -= 300
 	check(game.read_single_control(5).move == Vector2.ZERO, "sixth seat neutralizes stale input")
 	seats.pop_back()
 	game.party.handle({"type": "prepare", "session": "five", "players": [], "seats": seats})

@@ -278,7 +278,7 @@ func read_control(h: int) -> Dictionary:
 			party.send({"type": "controller_input", "session": party.session, "controller": seat.get("controller", "")})
 		if pressed & (1 << 6) and overlay_ready:
 			overlay_ready = false
-			party.send({"type": "request_overlay"})
+			GameNight.request_overlay()
 	return {"move": move.limit_length(), "shoot": bool(buttons & 6), "pass": bool(pressed & 1), "tackle": bool(pressed & 6), "switch": bool(pressed & 16), "sprint": sprint or bool(buttons & 32)}
 
 func read_single_control(h: int) -> Dictionary:
@@ -713,7 +713,7 @@ func handle_event(event: Dictionary) -> void:
 			stadium.crowd.event("finish", event.team)
 			sim.events_team = event.team
 			play_sound("goal")
-			party.send({"type": "finished", "session": party.session})
+			GameNight.notify_finished(party.session)
 
 func burst(pos: Vector3, color: Color, count: int, speed: float) -> void:
 	for i in count:
@@ -762,6 +762,7 @@ func _input(event: InputEvent) -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN else DisplayServer.WINDOW_MODE_FULLSCREEN)
 	if key == KEY_F3: show_stats = not show_stats
 	if key == KEY_F12:
+		get_viewport().set_input_as_handled() # F12 captures; the SDK would read it as "back to party".
 		capture_path = "res://captures/gameplay.png"
 		capture.call_deferred()
 	if party.managed and not host_active: return
@@ -806,7 +807,6 @@ func _input(event: InputEvent) -> void:
 		menu = true
 		paused = false
 		sim.setup(0, false, randi(), 120, dual_stick, team_size)
-	if party.managed and key == KEY_F1: party.send({"type": "request_overlay"})
 
 func adjust_menu(delta: int) -> void:
 	match menu_selection:
@@ -848,9 +848,8 @@ func on_party_command(message: Dictionary) -> void:
 			party.send({"type": "participation", "session": party.session, "instant_join": false})
 			# Wait until the renderer has prepared the arena before Ready.
 			if DisplayServer.get_name() != "headless": await RenderingServer.frame_post_draw
-			party.send({"type": "ready", "session": party.session})
+			GameNight.notify_ready(party.session)
 		"start":
-			party.show_game()
 			host_active = true
 			start_match()
 		"controller_frame":
@@ -874,25 +873,22 @@ func on_party_command(message: Dictionary) -> void:
 						for player in sound_players: player.stream_paused = paused
 				if buttons & (1 << 6) and not old & (1 << 6) and overlay_ready:
 					overlay_ready = false
-					party.send({"type": "request_overlay"})
+					GameNight.request_overlay()
 		"pause":
 			host_active = false
 			paused = true
 			for player in sound_players: player.stream_paused = true
-			party.hide_game()
 		"resume":
 			host_active = true
 			paused = false
 			previous.clear()
 			for player in sound_players: player.stream_paused = false
-			party.show_game()
 			overlay_after = Time.get_ticks_msec() + 1000
 		"dispose":
 			host_active = false
 			paused = true
 			for player in sound_players: player.stop()
 			clear_effects()
-			party.hide_game()
 		"party_updated": apply_profiles()
 		"setting_changed":
 			var key: String = str(message.get("key", ""))

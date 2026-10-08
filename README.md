@@ -148,8 +148,11 @@ lobby exposes only four. Consequently, 3v3 can currently launch there with bots
 in the remaining places, but six humans require a host with six-seat support.
 Windows XInput also limits conventional XInput controllers to four.
 
-The game implements authenticated WebSocket lifecycle messages and authoritative
-host controller frames. Opaque device tokens retain ownership; stale input is
+The game uses the [GameNight Godot SDK](https://github.com/ontola/gamenight/tree/main/sdk/godot),
+vendored in `addons/gamenight` (license in `third_party/GameNight-LICENSE.txt`)
+and kept identical to GameNight `main`; CI fails when it falls behind. The SDK
+owns the connection, lifecycle and window handling; `src/party.gd` maps it onto
+Ballkickers' seats and profiles. Host controller frames are authoritative. Opaque device tokens retain ownership; stale input is
 neutral after 250 ms. Managed sessions skip the menu, prepare off-screen, freeze
 and hide on host pause, resume the same state, and support repeated sessions.
 Back/Select returns to GameNight. Standalone Start is an in-game pause menu.
