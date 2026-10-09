@@ -94,6 +94,16 @@ func _initialize() -> void:
 	check(not s.chaos.dog_ball and dog.stun > 0, "a dash makes the dog drop the ball")
 	# Sprinklers make the pitch slippery; wind moves a resting ball.
 	s = live()
+	s = live()
+	s.chaos.start(s, "brawl")
+	s.chaos.age = 4.0
+	var scrum: Vector2 = s.chaos.extra.at
+	s.owner = 0
+	s.players[0].pos = scrum + Vector2(1.5, 0)
+	s.players[1].pos = scrum + Vector2(9, 0)
+	s.chaos.update_brawl(s, 1.0 / 60)
+	check(s.players[0].stun > 0 and s.owner == -1 and s.players[1].stun == 0, "walking into the hooligan brawl knocks you down and loses the ball")
+	s = live()
 	s.chaos.start(s, "sprinklers")
 	for i in 120: s.chaos.step(s, 1.0 / 60)
 	check(s.chaos.grip < .5 and s.chaos.slide < .5, "sprinklers reduce grip and ball friction")

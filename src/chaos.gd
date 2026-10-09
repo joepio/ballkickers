@@ -2,8 +2,8 @@ extends RefCounted
 ## Occasional football chaos: pitch invaders, fireworks, protests and an extra ball.
 ## Deterministic like the match: its own seeded RNG, stepped only during live play,
 ## so the match RNG stream (AI, keeper rolls) is unchanged by these events.
-const WEIGHTS := {"streaker": 3, "protest": 2, "fireworks": 2, "dog": 2, "wind": 2, "sprinklers": 1, "second_ball": 1}
-const KINDS := ["streaker", "fireworks", "protest", "second_ball", "dog", "sprinklers", "wind"]
+const WEIGHTS := {"streaker": 3, "protest": 2, "fireworks": 2, "dog": 2, "wind": 2, "sprinklers": 1, "second_ball": 1, "brawl": 1}
+const KINDS := ["streaker", "fireworks", "protest", "second_ball", "dog", "sprinklers", "wind", "brawl"]
 const TITLES := {
 	"streaker": "STREAKER ON THE PITCH!",
 	"fireworks": "FIREWORKS FROM THE STANDS!",
@@ -12,6 +12,7 @@ const TITLES := {
 	"dog": "DOG ON THE PITCH!",
 	"sprinklers": "SPRINKLERS ON!",
 	"wind": "GALE FORCE WIND!",
+	"brawl": "HOOLIGANS ON THE PITCH!",
 }
 const SLOGANS := ["MORE GOALS!", "BAN OFFSIDE", "FREE THE KEEPERS", "BALLS FOR ALL", "KEEP FOOTBALL WEIRD",
 	"JUSTICE FOR BUBS", "NO FOULS NO PEACE", "LONGER HALF TIME", "ROUND IS GOOD"]
@@ -81,6 +82,7 @@ func step(m, dt: float) -> void:
 		"dog": done = update_dog(m, dt)
 		"sprinklers": done = update_sprinklers(m, dt)
 		"wind": done = update_wind(m, dt)
+		"brawl": done = update_brawl(m, dt)
 	if m.phase != "play": return
 	if level <= 0 and kind != "fireworks": done = true
 	last_ball = m.ball
@@ -144,6 +146,19 @@ func start(m, which: String) -> void:
 			var dog := actor("dog", Vector2(side * (hx + 1), hz - 1), .5)
 			dog["state"] = "chase"
 			actors.append(dog)
+		"brawl":
+			# Two gangs, one from each end, meet somewhere away from the goals.
+			var count := 2 if level < 2 else 3
+			extra = {"at": Vector2(rng.randf_range(-hx * .4, hx * .4), rng.randf_range(-hz * .45, hz * .45))}
+			for team in 2:
+				var end := -1.0 if team == 0 else 1.0
+				for i in count:
+					var a := actor("hooligan", Vector2(end * (hx + 1.5), rng.randf_range(-hz * .6, hz * .6)), .6)
+					a["team"] = team
+					a["state"] = "charge"
+					a["slot"] = rng.randf_range(0, TAU)
+					a["look"] = rng.randi_range(0, 3)
+					actors.append(a)
 		"sprinklers": pass
 		"wind":
 			var angle := rng.randf_range(0, TAU)
@@ -371,7 +386,7 @@ func update_dog(m, dt: float) -> bool:
 				m.events.append({"type": "chaos_text", "text": "GOOD BOY. DROP IT!", "pos": m.ball})
 				break
 	else:
-		var ball2 := Vector2(m.ball.x, m.ball.z)
+		var ball2: Vector2 = Vector2(m.ball.x, m.ball.z)
 		move_actor(dog, ball2, 10.5, dt, 45)
 		if m.keeper_owner < 0 and m.ball.y < 1.0 and dog.pos.distance_to(ball2) < .95 and absf(dog.pos.x) < hx - 5:
 			if m.owner >= 0:
@@ -387,6 +402,61 @@ func drop_dog_ball(m, push: Vector2) -> void:
 	m.ball_velocity = Vector3(push.x, 3.0, push.y)
 	m.last_touch = -1
 	m.pickup_lock = .25
+
+## Hooligans charge in, brawl in a tight scrum for a while, then run back to
+## their own end. Anyone who comes near the scrum is flattened and loses the ball.
+const BRAWL_RADIUS := 2.3
+const BRAWL_TIME := 9.0
+
+func update_brawl(m, dt: float) -> bool:
+	var at: Vector2 = extra.at
+	var fighting := age > 2.2 and age < 2.2 + BRAWL_TIME
+	for a in actors:
+		if a.gone: continue
+		if age >= 2.2 + BRAWL_TIME: a.state = "leave"
+		elif fighting: a.state = "fight"
+		match a.state:
+			"charge":
+				move_actor(a, at + Vector2(-1.0 if a.team == 0 else 1.0, 0) * 1.1, 9.0, dt, 40)
+			"fight":
+				# Circle and lunge at each other around the middle of the scrum.
+				a.slot += dt * (2.2 if a.team == 0 else -2.6)
+				var spot: Vector2 = at + Vector2(cos(a.slot), sin(a.slot)) * (.9 + .5 * sin(age * 5 + a.slot))
+				move_actor(a, spot, 7.0, dt, 60)
+				var foe: Vector2 = at - a.pos
+				if foe.length() > .1: a.face = foe.normalized()
+			"leave":
+				var end := -1.0 if a.team == 0 else 1.0
+				move_actor(a, Vector2(end * (m.half_x + 2.5), a.pos.y), 8.5, dt, 30)
+				if absf(a.pos.x) > m.half_x + 2: a.gone = true
+		shove_players(m, a)
+		touch_ball(m, a, 13.0)
+	if fighting:
+		for i in m.players.size():
+			var p: Dictionary = m.players[i]
+			if p.stun > 0: continue
+			var away: Vector2 = p.pos - at
+			if away.length() > BRAWL_RADIUS: continue
+			var dir: Vector2 = away.normalized() if away.length() > .01 else Vector2.RIGHT
+			p.stun = .9
+			p.dash = 0.0
+			p.charge = 0.0
+			p.vel = dir * 13
+			if m.owner == i:
+				m.owner = -1
+				m.ball = Vector3(p.pos.x, .5, p.pos.y)
+				m.ball_velocity = Vector3(dir.x * 10, 3.0, dir.y * 10)
+				m.pickup_lock = .2
+			m.events.append({"type": "hit", "pos": Vector3(p.pos.x, 1, p.pos.y), "team": -1})
+		# A loose ball rolling into the scrum gets booted out again.
+		var ball2: Vector2 = Vector2(m.ball.x, m.ball.z)
+		if ball_loose(m) and m.pickup_lock <= 0 and ball2.distance_to(at) < BRAWL_RADIUS * .7:
+			var out: Vector2 = (ball2 - at).normalized() if ball2.distance_to(at) > .01 else Vector2.UP
+			m.ball_velocity = Vector3(out.x * 14, 4.0, out.y * 14)
+			m.last_touch = -1
+			m.pickup_lock = .15
+			m.events.append({"type": "chaos_kick", "pos": m.ball})
+	return actors.all(func(a): return a.gone) or age > 24
 
 func update_sprinklers(m, dt: float) -> bool:
 	var length := 10.0

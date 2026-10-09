@@ -95,7 +95,7 @@ func update(sim, dt: float) -> void:
 		build(sim, chaos)
 		built_serial = chaos.serial
 	match chaos.kind:
-		"streaker", "dog", "protest": update_actors(sim, chaos, dt)
+		"streaker", "dog", "protest", "brawl": update_actors(sim, chaos, dt)
 		"fireworks": update_fireworks(chaos, dt)
 		"second_ball": update_bonus_ball(chaos, dt)
 		"sprinklers": update_sprinklers(sim, chaos, dt)
@@ -110,6 +110,18 @@ func build(sim, chaos) -> void:
 			for a in chaos.actors: nodes.append(make_person(SHIRTS[a.shirt], Color("3d5a80"), SKIN.darkened(float(a.shirt % 3) * .18), "protester"))
 			make_banner(chaos)
 		"dog": nodes.append(make_dog())
+		"brawl":
+			for a in chaos.actors: nodes.append(make_hooligan(a.team, a.look))
+			banner = Node3D.new()
+			add_child(banner)
+			for n in 9:
+				var puff: MeshInstance3D = stadium.sphere(banner, Vector3.ZERO, .55, CREAM)
+				var dust := StandardMaterial3D.new()
+				dust.albedo_color = Color(1, .96, .86, .55)
+				dust.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				dust.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				puff.material_override = dust
+				puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		"fireworks":
 			for f in chaos.fireworks: flares.append(make_flare())
 		"second_ball":
@@ -165,6 +177,34 @@ func make_streaker() -> Node3D:
 	stadium.ring(body, Vector3(0, 1.32, 0), .3, .09, Color("ff7547"))
 	var hair: MeshInstance3D = stadium.sphere(body, Vector3(0, 1.98, -.04), .3, Color("c9503a"))
 	hair.scale = Vector3(1, .5, 1)
+	return root
+
+func make_hooligan(team: int, look: int) -> Node3D:
+	# Shirt off, team scarf, tattoos, and a bucket hat or a shaved head.
+	var skin: Color = [SKIN, SKIN.darkened(.12), Color("e9a27c"), Color("c98a63")][look]
+	var colour: Color = Color("ff6a3d") if team == 0 else Color("3f8fe0")
+	var root := make_person(skin, colour.darkened(.25), skin, "streaker")
+	root.set_meta("role", "hooligan")
+	var body: Node3D = root.get_node("Body")
+	stadium.ring(body, Vector3(0, 1.34, 0), .32, .1, colour)
+	var tail: MeshInstance3D = stadium.box(body, Vector3(.2, 1.05, .36), Vector3(.14, .5, .05), colour)
+	tail.rotation.z = .2
+	var ink := Color("2c3e5c")
+	# Tattoos: a chest piece, a band and a sleeve.
+	stadium.box(body, Vector3(-.15, 1.12, .39), Vector3(.2, .16, .02), ink)
+	stadium.box(body, Vector3(.17, .9, .4), Vector3(.12, .12, .02), Color("b8324a"))
+	for arm_name in ["ArmL", "ArmR"]:
+		var arm: Node3D = body.get_node(arm_name)
+		var side := -1.0 if arm_name == "ArmL" else 1.0
+		stadium.ring(arm, Vector3(side * .04, -.1, 0), .15, .035, ink)
+		if (look + int(side > 0)) % 2 == 0: stadium.capsule(arm, Vector3(side * .045, -.2, 0), .147, .3, ink.lightened(.15))
+	if look % 2 == 0:
+		var hat: MeshInstance3D = stadium.sphere(body, Vector3(0, 2.06, 0), .38, colour)
+		hat.scale = Vector3(1.1, .6, 1.1)
+		stadium.ring(body, Vector3(0, 1.96, 0), .46, .07, colour.darkened(.2))
+	else:
+		var stubble: MeshInstance3D = stadium.sphere(body, Vector3(0, 1.88, -.06), .38, skin.darkened(.3))
+		stubble.scale = Vector3(1, .5, 1)
 	return root
 
 func make_dog() -> Node3D:
@@ -238,6 +278,18 @@ func update_actors(sim, chaos, dt: float) -> void:
 				# Arms up in triumph, waving to the crowd.
 				body.get_node("ArmL").rotation = Vector3(0, 0, -2.7 + sin(time * 9) * .35)
 				body.get_node("ArmR").rotation = Vector3(0, 0, 2.7 + sin(time * 9 + 1) * .35)
+			"hooligan":
+				if a.state == "fight":
+					# Wild haymakers, one arm after the other, with a bounce.
+					var punch := sin(time * 11 + i * 1.9)
+					body.get_node("ArmL").rotation = Vector3(-1.6 - maxf(0, punch) * .9, 0, -.2)
+					body.get_node("ArmR").rotation = Vector3(-1.6 - maxf(0, -punch) * .9, 0, .2)
+					body.position.y = absf(sin(time * 9 + i)) * .16
+					body.rotation.y = lerp_angle(body.rotation.y, atan2(a.face.x, a.face.y) + sin(time * 7 + i) * .3, 1 - exp(-dt * 16))
+				else:
+					# Fists up while charging in, a victory lap on the way out.
+					body.get_node("ArmL").rotation = Vector3(-1.3, 0, -.3) if a.state == "charge" else Vector3(0, 0, -2.7 + sin(time * 9) * .3)
+					body.get_node("ArmR").rotation = Vector3(-1.3, 0, .3) if a.state == "charge" else Vector3(0, 0, 2.7 - sin(time * 9) * .3)
 			"protester":
 				body.position.y = absf(sin(time * 6 + i * .7)) * .1
 				body.get_node("ArmL").rotation = Vector3(-2.5, 0, -.2)
@@ -245,7 +297,19 @@ func update_actors(sim, chaos, dt: float) -> void:
 			_:
 				body.get_node("ArmL").rotation = Vector3(-stride, 0, 0)
 				body.get_node("ArmR").rotation = Vector3(stride, 0, 0)
-	if banner:
+	if banner and chaos.kind == "brawl":
+		# A cartoon dust cloud boils around the scrum while they fight.
+		var at: Vector2 = chaos.extra.at
+		var fighting: bool = chaos.actors.any(func(h): return h.state == "fight")
+		banner.position = Vector3(at.x, 0, at.y)
+		for n in banner.get_child_count():
+			var puff: Node3D = banner.get_child(n)
+			var angle := n * TAU / 9 + time * (1.5 + n % 3)
+			var size := (.8 + .35 * sin(time * 7 + n * 2.1)) * (1.0 if fighting else 0.0)
+			puff.scale = puff.scale.lerp(Vector3.ONE * size, 1 - exp(-dt * 8))
+			puff.position = Vector3(cos(angle) * 1.3, .6 + (n % 3) * .55 + .2 * sin(time * 5 + n), sin(angle) * 1.3)
+			puff.visible = puff.scale.x > .05
+	elif banner:
 		var a: Dictionary = chaos.actors[0]
 		banner.position = banner.position.lerp(Vector3(banner.get_meta("center"), absf(sin(time * 6)) * .1, a.pos.y + .35), 1 - exp(-dt * 30))
 

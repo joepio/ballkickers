@@ -138,6 +138,10 @@ within about 15 seconds:
 - **Sprinklers**: pop-up heads sweep jets of water across the pitch and leave
   dark wet patches; players slide and the ball barely slows.
 - **Gale force wind**: gusts push the ball (more so in the air) and drift players.
+- **Hooligans**: shirtless, tattooed Tangerines and Blueberries fans charge in
+  from both ends and brawl in a cloud of dust. Anyone who gets near is
+  flattened and loses the ball; a ball that rolls in gets booted out. As rare
+  as the second ball.
 
 Menu **Chaos** (or the GameNight `chaos` setting) selects Off, Some (default,
 roughly one event every 40 seconds of play) or Lots. Events use their own seeded
