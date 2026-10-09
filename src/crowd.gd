@@ -47,6 +47,7 @@ var material := ShaderMaterial.new()
 var seats: Array = []
 var layers: Dictionary = {}
 var props: Array = []
+var flag_shader := Shader.new()
 var cheer := [0.0, 0.0]
 var gloom := [0.0, 0.0]
 var hype := 0.0
@@ -201,7 +202,27 @@ func layout(factor: float) -> void:
 		node.position = Vector3(seat.pos.x * factor, seat.pos.y + .39 * (SIZE - 1.0), seat.pos.z * factor)
 		node.scale = Vector3.ONE * SIZE
 
+const FLAG_CODE = """shader_type spatial;
+render_mode cull_disabled;
+uniform vec4 tint : source_color;
+uniform float wave = 0.0;
+uniform float strength = 1.0;
+varying float shade;
+void vertex() {
+	// d: 0 at the pole, 1 at the free end. The pole edge stays put.
+	float d = clamp(abs(VERTEX.z) / 1.7, 0.0, 1.0);
+	float ripple = sin(wave - d * 7.0) * 0.16 + sin(wave * 1.7 - d * 11.0 + VERTEX.y * 2.0) * 0.05;
+	VERTEX.x += ripple * d * strength;
+	VERTEX.y -= d * d * 0.12 * (1.6 - strength);
+	shade = cos(wave - d * 7.0) * d;
+}
+void fragment() {
+	ALBEDO = tint.rgb * (0.86 + 0.14 * shade);
+	ROUGHNESS = 0.85;
+}"""
+
 func build_props(random: RandomNumberGenerator) -> void:
+	flag_shader.code = FLAG_CODE
 	# A few superfans: hand-written signs on the back stand and big flags on the sides.
 	preload("res://src/stadium.gd").fonts()
 	var label_font: Font = preload("res://src/stadium.gd").display_font
@@ -251,14 +272,26 @@ func build_props(random: RandomNumberGenerator) -> void:
 		dark.albedo_color = INK
 		stick.material_override = dark
 		pole.add_child(stick)
+		# The cloth hangs from the pole along its edge and ripples in a shader:
+		# a wave runs from the pole to the free end, growing as it goes.
 		var cloth := MeshInstance3D.new()
-		var cloth_mesh := BoxMesh.new()
-		cloth_mesh.size = Vector3(.04, 1.1, 1.7)
-		cloth.mesh = cloth_mesh
-		var color := StandardMaterial3D.new()
-		color.albedo_color = ORANGE if side < 0 else BLUE
+		var grid := SurfaceTool.new()
+		grid.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var columns := 14
+		for c in columns:
+			for r in 2:
+				var z0 := -side * 1.7 * c / columns
+				var z1 := -side * 1.7 * (c + 1) / columns
+				var y0 := 2.05 + r * .55
+				var y1 := y0 + .55
+				for v in [Vector3(0, y0, z0), Vector3(0, y1, z0), Vector3(0, y1, z1), Vector3(0, y0, z0), Vector3(0, y1, z1), Vector3(0, y0, z1)]:
+					grid.set_normal(Vector3.RIGHT)
+					grid.add_vertex(v)
+		cloth.mesh = grid.commit()
+		var color := ShaderMaterial.new()
+		color.shader = flag_shader
+		color.set_shader_parameter("tint", ORANGE if side < 0 else BLUE)
 		cloth.material_override = color
-		cloth.position = Vector3(0, 2.6, -.9 * side)
 		cloth.name = "Cloth"
 		pole.add_child(cloth)
 		props.append({"node": node, "seat": seat, "kind": "flag", "phase": random.randf() * TAU, "team": 0 if side < 0 else 1})
@@ -311,4 +344,6 @@ func update(dt: float, quiet: bool) -> void:
 			var speed: float = 1.6 + cheer[prop.team] * 2.4
 			prop.phase += dt * speed
 			pole.rotation.x = sin(prop.phase) * (.25 + cheer[prop.team] * .3)
-			prop.node.get_node("Pole/Cloth").rotation.y = sin(prop.phase * 2.3) * .25
+			var cloth_material: ShaderMaterial = prop.node.get_node("Pole/Cloth").material_override
+			cloth_material.set_shader_parameter("wave", prop.phase * 2.6)
+			cloth_material.set_shader_parameter("strength", .7 + cheer[prop.team] * .6)
