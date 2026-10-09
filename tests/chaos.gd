@@ -46,8 +46,8 @@ func _initialize() -> void:
 			for e in s.events: if e.type == "chaos": started += 1
 		print("CHAOS_EVENTS_LEVEL_%d %d" % [level, started])
 		if level == 0: check(started == 0, "Off never starts chaos")
-		elif level == 1: check(started >= 2 and started <= 5, "Some gives a few events per two minutes")
-		else: check(started >= 6, "Lots gives frequent events")
+		elif level == 1: check(started >= 1 and started <= 2, "Some keeps chaos rare: one or two events per two minutes")
+		else: check(started >= 4, "Lots gives frequent events")
 	# Fireworks stun athletes inside the telegraphed radius.
 	var s = live()
 	s.chaos.start(s, "fireworks")

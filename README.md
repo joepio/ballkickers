@@ -86,11 +86,14 @@ The stadium screen behind the back stand is the scoreboard: score, clock and
 both power meters (gold when a power shot is ready). The on-screen HUD keeps
 only player markers, a fading controls reminder at kick-off and the big moments.
 Around the bowl are dugouts, corner floodlight towers that each cast their own
-shadow, two camera operators walking the far touchline to keep the ball in frame,
-food trucks with queues, car parks, the team buses, flags, a park with trees,
-hills, a small skyline, clouds and a slow Ballkickers blimp. The main camera is a perspective broadcast camera high on the near
-stand: it pans and turns slightly with the ball, leans in a touch near a goal and
-after one, and always keeps the whole pitch in shot.
+shadow, three camera operators, food trucks with queues, car parks, the team buses, flags, a park with trees,
+hills, a small skyline, clouds and a slow Ballkickers blimp. The main camera is a fixed perspective broadcast camera high on the near stand
+that keeps the whole pitch in shot.
+
+Replays are filmed through the operators' own lenses: one on a riser at each far
+corner of the goal line (the slo-mo goal-line angle, and a long-lens shot of the
+scorers' stand), and a steadicam operator on the near side who runs in for the
+scorer and coach close-ups, picking the angle with nobody in the way.
 
 ## Goal replays
 
@@ -111,8 +114,9 @@ restored exactly afterwards (`tests/replay.gd`).
 
 ## Football chaos
 
-Every so often the match is interrupted by something that has nothing to do with
-football. One event runs at a time, announced on screen, and each ends by itself
+Now and then (about once every two minutes on Some) the match is interrupted by
+something that has nothing to do with football; the second ball and the
+sprinklers are the rarest. One event runs at a time, announced on screen, and each ends by itself
 within about 15 seconds:
 
 - **Streaker**: an invader weaves across the pitch, shoving players and
@@ -125,7 +129,8 @@ within about 15 seconds:
   counts as a real goal until the stewards confiscate it.
 - **Dog**: a dog chases the ball, steals it even from a dribbler and runs off
   with it. Dash into the dog to make it drop it.
-- **Sprinklers**: the pitch gets wet; players slide and the ball barely slows.
+- **Sprinklers**: pop-up heads sweep jets of water across the pitch and leave
+  dark wet patches; players slide and the ball barely slows.
 - **Gale force wind**: gusts push the ball (more so in the air) and drift players.
 
 Menu **Chaos** (or the GameNight `chaos` setting) selects Off, Some (default,

@@ -2,6 +2,7 @@ extends RefCounted
 ## Occasional football chaos: pitch invaders, fireworks, protests and an extra ball.
 ## Deterministic like the match: its own seeded RNG, stepped only during live play,
 ## so the match RNG stream (AI, keeper rolls) is unchanged by these events.
+const WEIGHTS := {"streaker": 3, "protest": 2, "fireworks": 2, "dog": 2, "wind": 2, "sprinklers": 1, "second_ball": 1}
 const KINDS := ["streaker", "fireworks", "protest", "second_ball", "dog", "sprinklers", "wind"]
 const TITLES := {
 	"streaker": "STREAKER ON THE PITCH!",
@@ -40,7 +41,7 @@ func setup(seed_value: int) -> void:
 	rng.seed = seed_value * 7919 + 13
 	recent.clear()
 	clear()
-	cooldown = rng.randf_range(10, 18) if level < 2 else rng.randf_range(3, 6)
+	cooldown = rng.randf_range(45, 75) if level < 2 else rng.randf_range(8, 14)
 
 func clear() -> void:
 	kind = ""
@@ -89,9 +90,11 @@ func step(m, dt: float) -> void:
 		clear()
 
 func pick() -> String:
+	# The big game-changers (a second ball, a soaked pitch) are the rarest.
 	var options: Array = []
 	for k in KINDS:
-		if k not in recent: options.append(k)
+		if k not in recent:
+			for n in WEIGHTS.get(k, 1): options.append(k)
 	return options[rng.randi_range(0, options.size() - 1)]
 
 func start(m, which: String) -> void:
@@ -99,7 +102,7 @@ func start(m, which: String) -> void:
 	kind = which
 	serial += 1
 	# The quiet gap counts only while no event runs, so goals cannot shorten it.
-	cooldown = rng.randf_range(20, 34) if level < 2 else rng.randf_range(3, 7)
+	cooldown = rng.randf_range(80, 130) if level < 2 else rng.randf_range(12, 20)
 	recent.append(which)
 	if recent.size() > 3: recent.pop_front()
 	var hx: float = m.half_x

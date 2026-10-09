@@ -17,10 +17,10 @@ var cine := Camera3D.new()
 var cine_shot := ""
 var coaches: Array = []
 var cameramen: Array = []
-var follow := Vector2.ZERO
-var zoom := 1.0
 const CAMERA_PITCH := deg_to_rad(47.0)
 const CAMERA_FOV := 30.0
+const RISER := 1.2
+const SHOT_FOV := {"wide": 34.0, "goalcam": 30.0, "scorer": 36.0, "coach": 40.0, "coach_sad": 40.0, "fans": 11.0}
 const CAMERA_DISTANCE := 61.0
 const CAMERA_AIM_Z := -.3
 ## How far the rig slides compared to where it aims; the rest is a slight turn.
@@ -100,7 +100,7 @@ func _ready() -> void:
 		keeper.get_node("Marker").visible = false
 		keeper_nodes.append(keeper)
 	for team in 2: coaches.append(stadium.make_coach(team))
-	for index in 2: cameramen.append(stadium.make_cameraman(index))
+	for index in 3: cameramen.append(stadium.make_cameraman(index))
 	ball_node = stadium.make_ball()
 	chaos_view.stadium = stadium
 	chaos_view.game = self
@@ -336,26 +336,16 @@ func _process(dt: float) -> void:
 		stadium.update_board(sim, run_time)
 		stadium.crowd.update(dt, menu or (sim.phase == "play" and not sim.chaos.active() and hype_free()))
 	var factor := Match.pitch_scale(team_size)
-	# A broadcast camera high on the near stand: it pans and turns with the ball,
-	# leans in a touch when the ball nears a goal or after one, and always keeps
-	# the whole pitch in shot. The menu gets a slow, still establishing view.
-	var drift := Vector2.ZERO
-	var push := 0.0
-	if not menu:
-		drift = Vector2(clampf(sim.ball.x * .16, -3.2, 3.2), clampf(sim.ball.z * .1, -1.0, 1.0)) * factor
-		push = smoothstep(.55, .95, absf(sim.ball.x) / sim.half_x) * .035
-		if sim.phase == "goal": push = .06
-	follow = follow.lerp(drift, 1 - exp(-dt * 1.4))
-	zoom = lerpf(zoom, 1.0 - push, 1 - exp(-dt * 1.2))
-	var focus := Vector3(-9.0 * factor if menu else follow.x, 0, CAMERA_AIM_Z * factor + follow.y)
+	# A fixed broadcast camera high on the near stand that keeps the whole pitch
+	# in shot; only the menu frames the stadium off to one side.
+	var focus := Vector3(-9.0 * factor if menu else 0.0, 0, CAMERA_AIM_Z * factor)
 	var rate := 5.0
 	if replay_showing(): direct_replay(dt)
 	elif not camera.current:
 		camera.current = true
 		cine_shot = ""
 	var offset := Vector3(sin(run_time * 67) * shake * .12, 0, cos(run_time * 79) * shake * .1)
-	var view := camera_offset(factor) * zoom
-	# The rig moves less than its aim, so following play turns the camera a little.
+	var view := camera_offset(factor)
 	var rig := Vector3(focus.x * CAMERA_TRUCK, 0, focus.z)
 	camera.position = camera.position.lerp(rig + view + offset, 1 - exp(-dt * rate))
 	camera.look_at(focus + offset)
@@ -523,27 +513,16 @@ func direct_replay(dt: float) -> void:
 		"wide":
 			eye = Vector3(ball.x * .85, 8.5, sim.half_z + 13)
 			target = Vector3(ball.x, .8, ball.z)
-		"goalcam":
-			# Behind the net, looking back up the pitch at the strike.
-			eye = Vector3(side * (sim.half_x + 7.5), 3.0, clampf(ball.z * .35, -2.5, 2.5))
-			target = Vector3(ball.x, .9, ball.z)
-		"scorer":
-			var p: Dictionary = sim.players[replay.scorer_index]
-			# From the pitch side, so the crowd behind the goal is the backdrop.
-			eye = clear_view(replay.scorer_index, p.pos, side)
-			target = Vector3(p.pos.x, 1.9, p.pos.y)
-		"coach", "coach_sad":
-			var coach: Node3D = coaches[replay.team if shot == "coach" else 1 - replay.team]
-			# From the pitch side, so the stand fills the background.
-			eye = coach.position + Vector3(-.9, 2.0, -4.8)
-			target = coach.position + Vector3(0, 1.75 if shot == "coach" else 1.5, 0)
-		"fans":
-			var f := Match.pitch_scale(team_size)
-			eye = Vector3(-side * 16 * f, 5.5, -2 * f)
-			target = Vector3(-side * 27 * f, 2.2, -8 * f)
+		_:
+			# Every other shot is filmed by one of the camera operators.
+			var man := replay_operator(shot)
+			eye = lens_point(man)
+			target = man.get_meta("look", ball)
+			if shot == "scorer": target.y = 1.9
 	if shot != cine_shot or not cine.current:
 		cine_shot = shot
 		cine.current = true
+		cine.fov = SHOT_FOV.get(shot, 34.0)
 		cine.position = eye
 		cine.look_at(target)
 	else:
@@ -552,44 +531,97 @@ func direct_replay(dt: float) -> void:
 		cine.global_transform = cine.global_transform.interpolate_with(look, 1 - exp(-dt * 6))
 
 func clear_view(index: int, at: Vector2, side: float) -> Vector3:
-	# Of a few close-up angles, take the one with nobody standing in the way.
+	# Walk around the scorer and take the angle with the least of anyone between
+	# the lens and them, staying on the pitch so the net never sits in front.
 	var best := Vector3.ZERO
-	var best_gap := -1.0
-	for angle in [.45, -.45, .9, -.9, 0.0]:
-		var from := at + Vector2(-side * 5.0, 0).rotated(angle)
-		var gap := INF
-		for i in sim.players.size():
-			if i != index: gap = minf(gap, Geometry2D.get_closest_point_to_segment(sim.players[i].pos, from, at).distance_to(sim.players[i].pos))
-		for k in sim.keepers: gap = minf(gap, Geometry2D.get_closest_point_to_segment(k.pos, from, at).distance_to(k.pos))
-		if gap > best_gap + .3:
-			best_gap = gap
+	var best_score := INF
+	for step in 12:
+		var dir := Vector2(-side, 0).rotated(step * TAU / 12.0)
+		var from := at + dir * 6.5
+		if absf(from.x) > sim.half_x - .6 or absf(from.y) > sim.half_z + .4: continue
+		var score := absf(dir.angle_to(Vector2(-side, 0))) * .15
+		var near := at + dir * .7
+		var bodies: Array = []
+		for i in sim.players.size(): if i != index: bodies.append(sim.players[i].pos)
+		for k in sim.keepers: bodies.append(k.pos)
+		for b in bodies:
+			var d: float = Geometry2D.get_closest_point_to_segment(b, near, from).distance_to(b)
+			score += maxf(0.0, 1.8 - d)
+		if score < best_score:
+			best_score = score
 			best = Vector3(from.x, 3.3, from.y)
+	if best_score == INF: best = Vector3(at.x - side * 6.5, 3.3, at.y)
 	return best
 
 func update_cameramen(dt: float) -> void:
-	# Two operators share the far touchline, one per half, and walk to stay level
-	# with the ball while turning their camera onto it.
-	var lane: float = -(sim.half_z + 1.35)
+	# The replay cameras are real people. One stands on a riser beside each goal
+	# (the goal-line and crowd shots come from them) and a steadicam operator
+	# walks the near side, then runs in for the scorer and coach close-ups.
+	var f := Match.pitch_scale(team_size)
+	var shot: String = replay.shot() if replay_showing() else ""
+	var scoring_side := 1.0 if replay.team == 0 else -1.0
 	for index in cameramen.size():
 		var man: Node3D = cameramen[index]
-		var side := -1.0 if index == 0 else 1.0
-		var low: float = -sim.half_x + 3.0 if index == 0 else 3.0
-		var high: float = -3.0 if index == 0 else sim.half_x - 3.0
-		var target := Vector3(clampf(sim.ball.x, low, high), 0, lane)
-		if man.position.distance_to(target) > 14: man.position = target
-		var step := target.x - man.position.x
-		man.position = man.position.move_toward(target, dt * 4.5)
 		var body: Node3D = man.get_node("Body")
-		var to_ball := Vector2(sim.ball.x - man.position.x, sim.ball.z - man.position.z)
-		body.rotation.y = lerp_angle(body.rotation.y, atan2(to_ball.x, to_ball.y), 1 - exp(-dt * 7))
-		var walking := absf(step) > .2
-		var swing := sin(run_time * 10 + side) * (.55 if walking else 0.0)
+		var look: Vector3 = sim.ball
+		var target: Vector3
+		var snap := false
+		if index < 2:
+			var side := -1.0 if index == 0 else 1.0
+			# On the goal line by the far corner: the classic goal-line angle,
+			# with nothing of the net between the lens and the goal mouth.
+			target = Vector3(side * (sim.half_x - 1.0), RISER, -(sim.half_z + 1.5))
+			# The crowd shot is a long-lens look from the scoring end, over the
+			# heads on the pitch, at the scorers' own stand at the other end.
+			if shot == "fans" and side == scoring_side:
+				look = Vector3(-side * (sim.half_x + 7.5), 2.8, -2.0 * f)
+		else:
+			target = Vector3(clampf(sim.ball.x, -sim.half_x + 2, sim.half_x - 2), 0, sim.half_z + .55)
+			if shot == "scorer" and replay.scorer_index >= 0:
+				var p: Dictionary = sim.players[replay.scorer_index]
+				var spot := clear_view(replay.scorer_index, p.pos, scoring_side)
+				target = Vector3(spot.x, 0, spot.z)
+				look = Vector3(p.pos.x, 1.5, p.pos.y)
+				snap = true
+			elif shot in ["coach", "coach_sad"]:
+				var coach: Node3D = coaches[replay.team if shot == "coach" else 1 - replay.team]
+				target = coach.position + Vector3(-.9, 0, -4.6)
+				look = coach.position + Vector3(0, 1.75 if shot == "coach" else 1.45, 0)
+				snap = true
+		man.set_meta("look", look)
+		var to_look := Vector2(look.x - man.position.x, look.z - man.position.z)
+		if snap and man.position.distance_to(target) > .5:
+			man.position = target
+			to_look = Vector2(look.x - target.x, look.z - target.z)
+			body.rotation.y = atan2(to_look.x, to_look.y)
+		if man.position.distance_to(target) > 14: man.position = target
+		var step := Vector2(target.x - man.position.x, target.z - man.position.z).length()
+		man.position = man.position.move_toward(target, dt * 4.5)
+		body.rotation.y = lerp_angle(body.rotation.y, atan2(to_look.x, to_look.y), 1 - exp(-dt * 7))
+		var swing := sin(run_time * 10 + index) * (.55 if step > .2 else 0.0)
 		body.get_node("LegL").rotation.x = swing
 		body.get_node("LegR").rotation.x = -swing
 		body.position.y = absf(swing) * .06
-		# Tilt the camera down towards the ball.
+		# Tilt the camera onto what it is filming.
 		var camera_node: Node3D = body.get_node("Camera")
-		camera_node.rotation.x = clampf(atan2(1.8 - sim.ball.y, to_ball.length()), 0, .5)
+		var lens_height: float = man.position.y + 1.9
+		camera_node.rotation.x = clampf(atan2(lens_height - look.y, maxf(.5, to_look.length())), -.3, .6)
+		# Never show the operator whose lens the replay is looking through.
+		man.visible = man != replay_operator(shot)
+
+## The camera operator a replay shot is filmed by, or null for the gantry.
+func replay_operator(shot: String) -> Node3D:
+	var scoring_side := 1.0 if replay.team == 0 else -1.0
+	match shot:
+		"goalcam": return cameramen[1 if scoring_side > 0 else 0]
+		"fans": return cameramen[1 if scoring_side > 0 else 0]
+		"scorer", "coach", "coach_sad": return cameramen[2]
+	return null
+
+## A point just in front of an operator's lens, where the replay eye sits.
+func lens_point(man: Node3D) -> Vector3:
+	var lens: Node3D = man.get_node("Body/Camera")
+	return lens.global_transform * Vector3(0, 0, 1.0)
 
 func update_coaches(dt: float) -> void:
 	for team in coaches.size():

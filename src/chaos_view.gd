@@ -19,24 +19,51 @@ var spark_clock := 0.0
 var time := 0.0
 
 func _ready() -> void:
-	for i in 150:
-		var drop: MeshInstance3D = stadium.sphere(self, Vector3.ZERO, .13, Color("bdeeff"))
+	# Water: small translucent streaks that line up with their flight, so each
+	# sprinkler draws one sweeping jet instead of a cloud of balls.
+	var water := StandardMaterial3D.new()
+	water.albedo_color = Color(.86, .96, 1.0, .7)
+	water.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	water.emission_enabled = true
+	water.emission = Color(.7, .9, 1.0)
+	water.emission_energy_multiplier = .35
+	water.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var drop_mesh := BoxMesh.new()
+	drop_mesh.size = Vector3(.07, .07, .42)
+	for i in 156:
+		var drop := MeshInstance3D.new()
+		drop.mesh = drop_mesh
+		drop.material_override = water
+		drop.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		drop.visible = false
-		drops.append({"node": drop, "vel": Vector3.ZERO, "life": 0.0})
+		add_child(drop)
+		drops.append({"node": drop, "vel": Vector3.ZERO, "life": (i / 6) * .036})
 	for i in 28:
 		var streak: MeshInstance3D = stadium.box(self, Vector3.ZERO, Vector3(.05, .05, 1.8), Color("e6f4f1"), .25)
 		streak.visible = false
 		streaks.append(streak)
+	# Wet turf is darker and a little glossy, the way a soaked pitch looks on TV.
 	var wet := StandardMaterial3D.new()
-	wet.albedo_color = Color(.62, .86, 1.0, .32)
+	wet.albedo_color = Color(.08, .32, .25, .38)
 	wet.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	wet.roughness = .1
+	wet.roughness = .05
+	wet.metallic_specular = 1.0
+	var disc := CylinderMesh.new()
+	disc.top_radius = 4.0
+	disc.bottom_radius = 4.0
+	disc.height = .01
+	disc.radial_segments = 40
 	for i in 6:
-		var head: MeshInstance3D = stadium.box(self, Vector3.ZERO, Vector3(.35, .3, .35), INK)
+		var head: MeshInstance3D = stadium.rod(self, Vector3(0, -.15, 0), Vector3(0, .2, 0), .12, Color("9aa3a8"))
 		head.visible = false
-		var puddle: MeshInstance3D = stadium.sphere(head, Vector3(0, -.1, 0), 4.0, CREAM)
+		var nozzle: MeshInstance3D = stadium.box(head, Vector3(0, .2, .1), Vector3(.08, .08, .3), Color("5c666c"))
+		nozzle.name = "Nozzle"
+		var puddle := MeshInstance3D.new()
+		puddle.mesh = disc
 		puddle.material_override = wet
+		puddle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		puddle.name = "Puddle"
+		head.add_child(puddle)
 		heads.append(head)
 
 func reset() -> void:
@@ -300,21 +327,30 @@ func update_bonus_ball(chaos, dt: float) -> void:
 
 func update_sprinklers(sim, chaos, dt: float) -> void:
 	var strength: float = clampf((1.0 - chaos.grip) / .78, 0, 1)
+	# Each head sweeps its jet back and forth like a garden impulse sprinkler.
+	for i in heads.size():
+		heads[i].rotation.y = i * 1.05 + sin(time * .9 + i * 2.0) * 1.3
 	for i in drops.size():
 		var d: Dictionary = drops[i]
 		d.life -= dt
 		if d.life <= 0 and strength > .05:
 			var head: Node3D = heads[i % heads.size()]
-			var angle := time * 2.2 + i * 1.7
+			var angle: float = head.rotation.y
+			var reach := 4.6 + randf() * .8
 			d.node.position = head.position + Vector3(0, .3, 0)
-			d.vel = Vector3(cos(angle) * 5.0, 6.5 + randf() * 2.5, sin(angle) * 5.0) * (0.6 + .4 * strength)
-			d.life = 1.0
-		d.vel.y -= 16 * dt
+			d.vel = Vector3(sin(angle) * reach, 5.2 + randf() * .5, cos(angle) * reach) * (.55 + .45 * strength)
+			d.life = .9
+		d.vel.y -= 14 * dt
 		d.node.position += d.vel * dt
 		d.node.visible = d.life > 0 and d.node.position.y > .05
+		if d.node.visible and d.vel.length() > .1:
+			d.node.look_at(d.node.position + d.vel, Vector3.UP if absf(d.vel.normalized().y) < .99 else Vector3.RIGHT)
 	for h in heads:
-		h.position.y = lerpf(-.2, .15, strength)
-		h.get_node("Puddle").scale = Vector3(strength, .004, strength) / maxf(.01, h.scale.x)
+		h.position.y = lerpf(-.2, .02, strength)
+		var puddle: Node3D = h.get_node("Puddle")
+		puddle.scale = Vector3(strength, 1, strength)
+		puddle.global_rotation = Vector3.ZERO
+		puddle.global_position = Vector3(h.position.x, .085, h.position.z)
 
 func update_wind(sim, chaos, dt: float) -> void:
 	var dir: Vector2 = chaos.wind.normalized()

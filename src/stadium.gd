@@ -131,8 +131,11 @@ func build() -> void:
 	sun.light_color = Color("ffe4b5")
 	sun.light_energy = .62
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 100
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	# Two cascades suit the perspective camera: crisp shadows on the pitch and
+	# no stretched, streaky shadow texels on the far stands.
+	sun.directional_shadow_max_distance = 110
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.shadow_normal_bias = 1.6
 	add_child(sun)
 	box(self, Vector3(0, -1.6, 0), Vector3(200, .6, 200), Color("7fae63"))
 	box(self, Vector3(0, -1.32, 0), Vector3(78, .2, 58), Color("aeb3a6"))
@@ -273,6 +276,7 @@ func build_bowl() -> void:
 			flood.shadow_bias = .12
 			flood.shadow_normal_bias = 2.5
 			flood.shadow_opacity = 1.0
+			flood.shadow_blur = 1.5
 			add_child(flood)
 			floodlights.append({"light": flood, "at": head.position})
 	place_floodlights(1.0)
@@ -282,7 +286,12 @@ func place_floodlights(factor: float) -> void:
 	for entry in floodlights:
 		var light: SpotLight3D = entry.light
 		var at: Vector3 = entry.at
-		light.position = Vector3(at.x * factor, at.y, at.z * factor)
+		# Hang the light a few metres in front of its tower, so the lattice and the
+		# lamp housing never sit between the light and the pitch. With the light
+		# inside the tower they cast thin black streaks across the corners.
+		var spot := Vector3(at.x * factor, at.y, at.z * factor)
+		spot += (Vector3.ZERO - spot).normalized() * 3.0
+		light.position = spot
 		light.look_at(Vector3(0, 0, 0))
 
 func build_scenery() -> void:
@@ -404,16 +413,20 @@ func crowd_skin(random: RandomNumberGenerator) -> Color:
 	return skins[random.randi_range(0, skins.size() - 1)]
 
 func make_cameraman(index: int) -> Node3D:
-	# Touchline camera operators in hi-vis bibs with a shoulder camera and a red
-	# tally light, who walk the far side keeping the ball in frame.
+	# Camera operators in hi-vis bibs with a shoulder camera and a red tally
+	# light; replays are filmed through their lenses.
 	var root := Node3D.new()
 	root.name = "Cameraman%d" % index
 	add_child(root)
 	root.scale = Vector3.ONE * 1.15
+	if index < 2:
+		# The goal-line operators film from a small riser.
+		var riser := box(root, Vector3(0, -.52, 0), Vector3(1.3, 1.04, 1.3), Color("5c666c"))
+		riser.name = "Riser"
 	var body := Node3D.new()
 	body.name = "Body"
 	root.add_child(body)
-	var skin: Color = [Color("d9a074"), Color("ffe0bd")][index % 2]
+	var skin: Color = [Color("d9a074"), Color("ffe0bd"), Color("8a5634")][index % 3]
 	capsule(body, Vector3(0, .95, 0), .4, 1.05, Color("2b2f3a"))
 	var bib := capsule(body, Vector3(0, 1.05, 0), .42, .7, Color("d7f24a"))
 	bib.scale = Vector3(1, 1, 1.02)
