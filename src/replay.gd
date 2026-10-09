@@ -35,8 +35,19 @@ var reactions: Array = []
 var scorer_index := -1
 var own_goal := false
 
+## The point being played since kick-off: how long it has run, how often the
+## ball changed teams and how many shots and saves it had.
+var rally_time := 0.0
+var swaps := 0
+var chances := 0
+var holder := -1
+
 func clear() -> void:
 	frames.clear()
+	rally_time = 0.0
+	swaps = 0
+	chances = 0
+	holder = -1
 
 func record(sim) -> void:
 	var events: Array = []
@@ -48,13 +59,26 @@ func record(sim) -> void:
 		"ball": sim.ball, "ball_velocity": sim.ball_velocity, "owner": sim.owner, "keeper_owner": sim.keeper_owner,
 		"elapsed": sim.elapsed, "extra": sim.chaos.extra.get("pos", null), "events": events})
 	if frames.size() > BUFFER: frames.pop_front()
+	rally_time += 1.0 / 60
+	var now: int = sim.players[sim.owner].team if sim.owner >= 0 else sim.keeper_owner
+	if now >= 0:
+		if holder >= 0 and now != holder: swaps += 1
+		holder = now
+	for e in events:
+		if e.type in ["shot", "super", "save"]: chances += 1
 
-## Only the goals that decide a match get a replay: a golden goal, or one in
-## the closing seconds. Ordinary goals go straight back to kick-off.
+## Only special goals get a replay: a golden goal, one in the closing seconds,
+## or one that ends a long, end-to-end point. Others go straight to kick-off.
 const LATE_SECONDS := 15.0
+const RALLY_SECONDS := 25.0
+const RALLY_SWAPS := 10
+const RALLY_CHANCES := 4
 
 func worth_showing(sim) -> bool:
-	return sim.overtime or sim.clock <= LATE_SECONDS
+	return sim.overtime or sim.clock <= LATE_SECONDS or exciting_rally()
+
+func exciting_rally() -> bool:
+	return rally_time >= RALLY_SECONDS and (swaps >= RALLY_SWAPS or chances >= RALLY_CHANCES)
 
 func start(sim) -> bool:
 	if frames.size() < 30: return false

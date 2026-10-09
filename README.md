@@ -97,9 +97,10 @@ scorer and coach close-ups, picking the angle with nobody in the way.
 
 ## Goal replays
 
-Goals that decide a match (a golden goal, or one in the last 15 seconds) get a
-TV-style action replay after the celebration; other goals go straight back to
-kick-off. A replay has a team-stripe
+Special goals get a TV-style action replay after the celebration: a golden
+goal, one in the last 15 seconds, or one that ends a long, end-to-end point
+(at least 25 seconds since kick-off with the ball changing teams ten times or
+four shots and saves). Other goals go straight back to kick-off. A replay has a team-stripe
 wipe, a REPLAY bug, a low broadcast camera that follows the build-up in real
 time, a cut to the goal-line camera for the finish in super slo-mo, a
 chalked telestrator line of the ball's path, a lower third with the scorer, a

@@ -29,7 +29,21 @@ func _initialize() -> void:
 	var before := [s.ball, s.players[0].pos, s.keepers[1].pos, s.phase, s.phase_time, s.score.duplicate()]
 	s.clock = 60.0
 	s.overtime = false
+	var rally := [r.rally_time, r.swaps, r.chances]
+	r.rally_time = 5.0
+	r.swaps = 2
+	r.chances = 1
 	check(not r.worth_showing(s), "an ordinary mid-match goal gets no replay")
+	r.rally_time = 40.0
+	r.swaps = 14
+	check(r.worth_showing(s), "a goal after a long back-and-forth point gets a replay")
+	r.rally_time = 40.0
+	r.swaps = 1
+	r.chances = 1
+	check(not r.worth_showing(s), "a long but quiet point does not")
+	r.rally_time = rally[0]
+	r.swaps = rally[1]
+	r.chances = rally[2]
 	s.clock = 9.0
 	check(r.worth_showing(s), "a goal in the closing seconds gets a replay")
 	s.clock = 0.0
