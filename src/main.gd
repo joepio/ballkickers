@@ -377,15 +377,24 @@ func update_visuals(dt: float) -> void:
 		var body: Node3D = node.get_node("Body")
 		var inward := 1.0 if team == 0 else -1.0
 		body.rotation.y = inward * PI / 2
-		var down: bool = k.dive > 0 or k.recovery > .45
-		body.rotation.z = lerp_angle(body.rotation.z, k.dive_dir * inward * 1.2 if down else 0.0, 1 - exp(-dt * 18))
-		body.position.y = lerpf(body.position.y, .45 if down else 0.0, 1 - exp(-dt * 18))
+		# Lying after a dive, then scrambling up: legs pedal, arms push off the
+		# grass and the body wobbles upright as the recovery runs out.
+		if k.dive > 0: node.set_meta("dived", true)
+		elif k.recovery <= 0: node.set_meta("dived", false)
+		var lie: float = 1.0 if k.dive > 0 else (clampf((k.recovery - .1) / .55, 0, 1) if node.get_meta("dived", false) else 0.0)
+		var scramble: bool = k.dive <= 0 and lie > 0
+		var down: bool = lie > .5
+		var wobble: float = sin(sim.elapsed * 13 + team) * .12 if scramble else 0.0
+		body.rotation.z = lerp_angle(body.rotation.z, k.dive_dir * inward * 1.2 * lie + wobble, 1 - exp(-dt * 18))
+		body.position.y = lerpf(body.position.y, .45 * lie, 1 - exp(-dt * 18))
 		var holding: bool = sim.keeper_owner == team
-		body.get_node("ArmL").rotation.x = -1.3 if holding or down else -.5
-		body.get_node("ArmR").rotation.x = -1.3 if holding or down else -.5
+		var push: float = sin(sim.elapsed * 11) * .4 if scramble else 0.0
+		body.get_node("ArmL").rotation.x = -1.3 + push if holding or down else -.5
+		body.get_node("ArmR").rotation.x = -1.3 - push if holding or down else -.5
 		body.get_node("ArmL").rotation.z = -.55 if down else .35
 		body.get_node("ArmR").rotation.z = .55 if down else -.35
-		body.get_node("LegL").rotation.x = sin(sim.elapsed * 18) * minf(.35, absf(k.vel) * .04) - k.kick * 4
+		var pedal: float = sin(sim.elapsed * 15) * .7 if scramble else 0.0
+		body.get_node("LegL").rotation.x = sin(sim.elapsed * 18) * minf(.35, absf(k.vel) * .04) - k.kick * 4 + pedal
 		body.get_node("LegR").rotation.x = -body.get_node("LegL").rotation.x
 		express(body, "focus" if k.dive > 0 else ("grin" if holding else ""), sim.elapsed + team * 2.1, k.kick > 0)
 		body.get_node("Stars").visible = false
