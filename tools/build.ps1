@@ -19,6 +19,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Chaos checks failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Replay checks failed' }
 & $Godot --headless --path $goalRoot --script res://tests/audio.gd
 if ($LASTEXITCODE -ne 0) { throw 'Audio checks failed' }
+& $Godot --headless --path $goalRoot --script res://tests/crowd.gd
+if ($LASTEXITCODE -ne 0) { throw 'Crowd checks failed' }
 & $Godot --headless --path $goalRoot --export-pack 'Windows Desktop' (Join-Path $goalOutput 'Ballkickers.pck')
 if ($LASTEXITCODE -ne 0) { throw 'Pack export failed' }
 # The installed editor can run a same-named PCK without export templates.

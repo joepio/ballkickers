@@ -63,6 +63,7 @@ var capture_done := false
 var exit_at := 0.0
 var sound_players: Array = []
 var audio = preload("res://src/sound.gd").new()
+var crowd_audio = preload("res://src/crowd_sound.gd").new()
 var profile_textures: Dictionary = {}
 var host_active := false
 var last_activity := 0
@@ -128,6 +129,7 @@ func _ready() -> void:
 	add_child(party)
 	print("Ballkickers: ready; %d local controllers" % Input.get_connected_joypads().size())
 	add_child(audio)
+	add_child(crowd_audio)
 	sound_players = audio.players
 	sim.chaos.level = chaos_level
 	sim.setup(0, false, 725, 120, dual_stick, team_size)
@@ -186,6 +188,7 @@ func start_match() -> void:
 	clear_effects()
 	audio.reset()
 	play_sound("whistle")
+	crowd_audio.kickoff()
 
 func _physics_process(dt: float) -> void:
 	if party.managed and not host_active: return
@@ -324,6 +327,7 @@ func read_dual_control(h: int, half: int) -> Dictionary:
 	return {"move": move.limit_length(), "shoot": action, "tackle": pressed, "pass": false, "sprint": false, "switch": false}
 
 func _process(dt: float) -> void:
+	crowd_audio.active = sound_enabled and not paused and not (party.managed and not host_active)
 	run_time += dt
 	if exit_at > 0 and run_time > 3 and not paused: frame_samples.append(dt * 1000.0)
 	if not paused and (not party.managed or host_active):
@@ -668,6 +672,7 @@ func replay_event(event: Dictionary) -> void:
 
 func handle_event(event: Dictionary) -> void:
 	var type: String = event.type
+	if not menu: crowd_audio.react(event)
 	var color: Color = Stadium.ORANGE if event.get("team", 0) == 0 else Stadium.BLUE
 	match type:
 		"control_changed": apply_profiles()
