@@ -160,6 +160,23 @@ func _initialize() -> void:
 	s.move_ball(.016)
 	check(s.owner == -1 and s.stats.shots == 1 and s.ball_velocity.x > 25, "dash into a loose ball automatically kicks it")
 	check(s.players[0].human == 0 and s.players[2].human == 1, "dual ownership stays fixed after possession changes")
+	s.setup(2, false, 90, 120, true)
+	s.phase = "play"
+	s.players[0].pos = Vector2(-10, 0)
+	s.players[0].face = Vector2.RIGHT
+	s.players[0].vel = Vector2.RIGHT * 9
+	var normal_after: Vector2 = s.players[0].pos
+	for frame in 30: s.move_player(0, {"move": Vector2.RIGHT}, 1.0 / 60)
+	var normal_run: float = s.players[0].pos.x - normal_after.x
+	s.players[0].pos = Vector2(-10, 0)
+	s.players[0].vel = Vector2.RIGHT * 9
+	s.move_player(0, {"move": Vector2.RIGHT, "tackle": true}, 1.0 / 60)
+	for frame in 13: s.move_player(0, {"move": Vector2.RIGHT}, 1.0 / 60)
+	check(s.players[0].dash == 0 and s.players[0].slide > 0, "a dash ends in a slide recovery")
+	var slide_from: Vector2 = s.players[0].pos
+	for frame in 30: s.move_player(0, {"move": Vector2.RIGHT}, 1.0 / 60)
+	var slide_run: float = s.players[0].pos.x - slide_from.x
+	check(slide_run < normal_run * .6, "players are slowed after a dash (%.1f vs %.1f m)" % [slide_run, normal_run])
 	for seed_value in [725, 18, 40]:
 		s.setup(0, false, seed_value, 120, true)
 		for frame in 24000:

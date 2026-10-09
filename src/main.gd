@@ -400,7 +400,7 @@ func update_visuals(dt: float) -> void:
 		body.rotation.y = lerp_angle(body.rotation.y, atan2(p.face.x, p.face.y), 1 - exp(-dt * 22))
 		var stride := sin(sim.elapsed * 19 + i) * minf(.8, speed * .06)
 		body.position.y = absf(sin(sim.elapsed * 19 + i)) * minf(.16, speed * .014)
-		body.rotation.x = lerpf(body.rotation.x, .85 if p.stun > 0 else (-.35 if p.dash > 0 else .08 * speed / 12), 1 - exp(-dt * 20))
+		body.rotation.x = lerpf(body.rotation.x, .85 if p.stun > 0 else (-.35 if p.dash > 0 else (-.2 if p.slide > 0 else .08 * speed / 12)), 1 - exp(-dt * 20))
 		body.rotation.z = lerpf(body.rotation.z, 1.25 if p.stun > 0 else 0, 1 - exp(-dt * 15))
 		body.get_node("LegL").rotation.x = stride - p.kick * 5
 		body.get_node("LegR").rotation.x = -stride

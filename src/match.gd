@@ -5,6 +5,7 @@ const HALF_Z = 12.0
 const GOAL_Z = 3.7
 const GOAL_HEIGHT = 3.1
 const RADIUS = 0.65
+const SLIDE_RECOVERY = .5
 const Chaos = preload("res://src/chaos.gd")
 var run_speed := 1.0
 var shot_power := 1.0
@@ -79,7 +80,7 @@ func setup(humans: int = 1, coop: bool = false, seed_value: int = 42, seconds: f
 		players.append({"team": team, "role": role, "human": human, "pos": Vector2.ZERO,
 			"vel": Vector2.ZERO, "face": Vector2(1 if team == 0 else -1, 0), "stamina": 1.0,
 			"charge": 0.0, "cooldown": 0.0, "stun": 0.0, "dash": 0.0, "kick": 0.0,
-			"dash_shot": false,
+			"dash_shot": false, "slide": 0.0,
 			"think": rng.randf_range(0, 0.3), "intent": Vector2.ZERO, "shoot_at": rng.randf_range(.3, .9),
 			"nerve": rng.randf_range(.7, 1.2), "drift": rng.randf_range(-2.5, 2.5), "held": false,
 			"name": "P%d" % (human + 1) if human >= 0 else ["BOLT", "MISO", "ZIG", "POPPY", "BUBS", "NOVA"][i % 6]})
@@ -108,6 +109,7 @@ func kickoff(team: int) -> void:
 		p.cooldown = 0.0
 		p.dash = 0.0
 		p.dash_shot = false
+		p.slide = 0.0
 	ball = Vector3(0, .45, 0)
 	ball_velocity = Vector3.ZERO
 	owner = -1
@@ -164,6 +166,7 @@ func move_player(i: int, input: Dictionary, dt: float) -> void:
 	p.cooldown = maxf(0, p.cooldown - dt)
 	p.stun = maxf(0, p.stun - dt)
 	p.dash = maxf(0, p.dash - dt)
+	p.slide = maxf(0, p.slide - dt)
 	if p.dash <= 0 or p.stun > 0: p.dash_shot = false
 	p.kick = maxf(0, p.kick - dt)
 	var move: Vector2 = input.get("move", Vector2.ZERO)
@@ -179,11 +182,15 @@ func move_player(i: int, input: Dictionary, dt: float) -> void:
 		var speed := (12.8 if sprint else 9.0) * run_speed
 		if owner == i: speed *= .91
 		if p.charge > 0: speed *= .66
+		# Getting up from a slide tackle: slow for a moment after every dash.
+		var sliding: bool = p.dash <= 0 and p.slide > 0
+		if sliding: speed *= .25
 		if p.dash > 0:
 			p.vel = p.face * 22.0
-		else: p.vel = p.vel.move_toward(move * speed, dt * (64.0 if move.length() > .1 else 48.0) * chaos.grip)
+		else: p.vel = p.vel.move_toward(move * speed, dt * (140.0 if sliding else (64.0 if move.length() > .1 else 48.0)) * chaos.grip)
 		if input.get("tackle", false) and owner != i and p.cooldown <= 0 and p.stamina > .2:
 			p.dash = .21
+			p.slide = .21 + SLIDE_RECOVERY
 			p.dash_shot = true
 			p.vel = p.face * 22.0
 			p.cooldown = .9
@@ -209,6 +216,7 @@ func move_player(i: int, input: Dictionary, dt: float) -> void:
 				q.stun = .75
 				q.vel = p.face * 17
 				p.dash = 0.0
+				p.slide = SLIDE_RECOVERY
 				stats.tackles += 1
 				power[p.team] = minf(100, power[p.team] + 9)
 				if owner == j:
