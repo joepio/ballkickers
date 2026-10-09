@@ -846,8 +846,11 @@ func on_party_command(message: Dictionary) -> void:
 			sync_arena()
 			apply_profiles()
 			party.send({"type": "participation", "session": party.session, "instant_join": false})
-			# Wait until the renderer has prepared the arena before Ready.
-			if DisplayServer.get_name() != "headless": await RenderingServer.frame_post_draw
+			# Wait until the renderer has prepared the arena before Ready. A
+			# warming game is minimized, and a minimized window never draws, so
+			# only wait while the window is actually on screen.
+			if DisplayServer.get_name() != "headless" and DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_MINIMIZED:
+				await RenderingServer.frame_post_draw
 			GameNight.notify_ready(party.session)
 		"start":
 			host_active = true
