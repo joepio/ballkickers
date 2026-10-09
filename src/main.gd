@@ -569,7 +569,7 @@ func clear_view(index: int, at: Vector2, side: float) -> Vector3:
 func update_cameramen(dt: float) -> void:
 	# The replay cameras are real people. One stands on a riser beside each goal
 	# (the goal-line and crowd shots come from them) and a steadicam operator
-	# walks the near side, then runs in for the scorer and coach close-ups.
+	# walks behind the coaches on the near side, then runs in for the scorer and coach close-ups.
 	var f := Match.pitch_scale(team_size)
 	var shot: String = replay.shot() if replay_showing() else ""
 	var scoring_side := 1.0 if replay.team == 0 else -1.0
@@ -589,7 +589,7 @@ func update_cameramen(dt: float) -> void:
 			if shot == "fans" and side == scoring_side:
 				look = Vector3(-side * (sim.half_x + 7.5), 2.8, -2.0 * f)
 		else:
-			target = Vector3(clampf(sim.ball.x, -sim.half_x + 2, sim.half_x - 2), 0, sim.half_z + .55)
+			target = Vector3(clampf(sim.ball.x, -sim.half_x + 2, sim.half_x - 2), 0, sim.half_z + 2.0)
 			if shot == "scorer" and replay.scorer_index >= 0:
 				var p: Dictionary = sim.players[replay.scorer_index]
 				var spot := clear_view(replay.scorer_index, p.pos, scoring_side)
@@ -641,7 +641,7 @@ func update_coaches(dt: float) -> void:
 		var coach: Node3D = coaches[team]
 		var home := (-1.0 if team == 0 else 1.0) * 6.5 * Match.pitch_scale(team_size)
 		var pace := home + sin(run_time * .45 + team * 2.0) * 2.2 + clampf(sim.ball.x * .12, -2, 2)
-		var target := Vector3(pace, 0, sim.half_z + 1.9)
+		var target := Vector3(pace, 0, sim.half_z + .6)
 		if coach.position.distance_to(target) > 12: coach.position = target
 		var step := target - coach.position
 		coach.position = coach.position.lerp(target, 1 - exp(-dt * 2))
