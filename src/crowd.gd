@@ -306,6 +306,9 @@ func update(dt: float, quiet: bool) -> void:
 			board.rotation.z = .08 * sin(time * 1.3 + prop.phase) + excite * .15 * sin(time * 9 + prop.phase)
 		else:
 			var pole: Node3D = prop.node.get_node("Pole")
-			var speed: float = 1.6 + cheer[prop.team] * 5.0
-			pole.rotation.x = sin(time * speed + prop.phase) * (.25 + cheer[prop.team] * .35)
-			prop.node.get_node("Pole/Cloth").rotation.y = sin(time * speed * 2.3 + prop.phase) * .25
+			# Advance the swing angle instead of multiplying the clock by a changing
+			# speed: that made flags shudder wildly while a cheer faded.
+			var speed: float = 1.6 + cheer[prop.team] * 2.4
+			prop.phase += dt * speed
+			pole.rotation.x = sin(prop.phase) * (.25 + cheer[prop.team] * .3)
+			prop.node.get_node("Pole/Cloth").rotation.y = sin(prop.phase * 2.3) * .25
