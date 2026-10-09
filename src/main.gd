@@ -224,7 +224,7 @@ func _physics_process(dt: float) -> void:
 	# Roll the replay once the celebration has had its moment.
 	if replay_pending and sim.phase == "goal" and sim.phase_time < 1.0:
 		replay_pending = false
-		if sim.replays and not menu and replay.start(sim): play_sound("whistle")
+		if sim.replays and not menu and replay.worth_showing(sim) and replay.start(sim): play_sound("whistle")
 
 func read_control(h: int) -> Dictionary:
 	var move := Vector2.ZERO

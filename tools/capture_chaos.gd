@@ -46,6 +46,8 @@ func run() -> void:
 	if goal >= 0 or replay >= 0:
 		# Line up a strike from the edge of the box so the goal has a build-up.
 		var s = game.sim
+		# Replays only follow late goals, so stage this one in the closing seconds.
+		if replay >= 0: s.clock = 12.0
 		var shooter: int = 0
 		s.owner = shooter
 		s.players[shooter].pos = Vector2(s.half_x - 11, 2.5)

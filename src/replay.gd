@@ -49,6 +49,13 @@ func record(sim) -> void:
 		"elapsed": sim.elapsed, "extra": sim.chaos.extra.get("pos", null), "events": events})
 	if frames.size() > BUFFER: frames.pop_front()
 
+## Only the goals that decide a match get a replay: a golden goal, or one in
+## the closing seconds. Ordinary goals go straight back to kick-off.
+const LATE_SECONDS := 15.0
+
+func worth_showing(sim) -> bool:
+	return sim.overtime or sim.clock <= LATE_SECONDS
+
 func start(sim) -> bool:
 	if frames.size() < 30: return false
 	clip = frames.slice(maxi(0, frames.size() - WINDOW))

@@ -27,6 +27,14 @@ func _initialize() -> void:
 	check(until_goal(s, r), "bot match produces a goal to replay")
 	check(r.frames.size() >= 30 and r.frames[-1].events.any(func(e): return e.type == "goal"), "buffer ends on the goal frame")
 	var before := [s.ball, s.players[0].pos, s.keepers[1].pos, s.phase, s.phase_time, s.score.duplicate()]
+	s.clock = 60.0
+	s.overtime = false
+	check(not r.worth_showing(s), "an ordinary mid-match goal gets no replay")
+	s.clock = 9.0
+	check(r.worth_showing(s), "a goal in the closing seconds gets a replay")
+	s.clock = 0.0
+	s.overtime = true
+	check(r.worth_showing(s), "a golden goal gets a replay")
 	check(r.start(s), "replay starts")
 	check(r.scorer != "" and r.caption != "" and r.speed_kmh > 0, "lower third has scorer, caption and shot speed (%s, %s)" % [r.scorer, r.caption])
 	var seen: Array = []

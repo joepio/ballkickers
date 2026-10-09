@@ -97,9 +97,11 @@ scorer and coach close-ups, picking the angle with nobody in the way.
 
 ## Goal replays
 
-After the celebration every goal gets a TV-style action replay: a team-stripe
+Goals that decide a match (a golden goal, or one in the last 15 seconds) get a
+TV-style action replay after the celebration; other goals go straight back to
+kick-off. A replay has a team-stripe
 wipe, a REPLAY bug, a low broadcast camera that follows the build-up in real
-time, a cut to the camera behind the net for the finish in super slo-mo, a
+time, a cut to the goal-line camera for the finish in super slo-mo, a
 chalked telestrator line of the ball's path, a lower third with the scorer, a
 commentary cliché that fits what happened (own goal, power shot, rebound, keeper
 error, long range, the beach ball) and a speed-gun reading, then a hold on the
