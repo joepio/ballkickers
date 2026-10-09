@@ -182,7 +182,7 @@ func move_player(i: int, input: Dictionary, dt: float) -> void:
 		var speed := (12.8 if sprint else 9.0) * run_speed
 		if owner == i: speed *= .91
 		if p.charge > 0: speed *= .66
-		# Getting up from a slide tackle: slow for a moment after every dash.
+		# Getting up from a missed slide tackle: a dash that hits nobody and no ball slows you down.
 		var sliding: bool = p.dash <= 0 and p.slide > 0
 		if sliding: speed *= .25
 		if p.dash > 0:
@@ -216,7 +216,7 @@ func move_player(i: int, input: Dictionary, dt: float) -> void:
 				q.stun = .75
 				q.vel = p.face * 17
 				p.dash = 0.0
-				p.slide = SLIDE_RECOVERY
+				p.slide = 0.0
 				stats.tackles += 1
 				power[p.team] = minf(100, power[p.team] + 9)
 				if owner == j:
@@ -351,6 +351,7 @@ func move_ball(dt: float) -> void:
 			if p.dash > 0 and p.dash_shot:
 				p.charge = .35
 				p.dash = 0.0
+				p.slide = 0.0
 				p.dash_shot = false
 				shoot_ball(i)
 				return

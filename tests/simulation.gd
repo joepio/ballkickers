@@ -176,7 +176,15 @@ func _initialize() -> void:
 	var slide_from: Vector2 = s.players[0].pos
 	for frame in 30: s.move_player(0, {"move": Vector2.RIGHT}, 1.0 / 60)
 	var slide_run: float = s.players[0].pos.x - slide_from.x
-	check(slide_run < normal_run * .6, "players are slowed after a dash (%.1f vs %.1f m)" % [slide_run, normal_run])
+	check(slide_run < normal_run * .6, "players are slowed after a missed dash (%.1f vs %.1f m)" % [slide_run, normal_run])
+	s.players[0].cooldown = 0.0
+	s.players[0].stamina = 1.0
+	s.players[0].slide = 0.0
+	var foe: int = s.players.find(s.players.filter(func(p): return p.team != s.players[0].team)[0])
+	s.players[foe].pos = s.players[0].pos + Vector2(1.2, 0)
+	s.players[foe].stun = 0.0
+	s.move_player(0, {"move": Vector2.RIGHT, "tackle": true}, 1.0 / 60)
+	check(s.players[foe].stun > 0 and s.players[0].slide == 0, "a dash that hits an opponent costs nothing")
 	for seed_value in [725, 18, 40]:
 		s.setup(0, false, seed_value, 120, true)
 		for frame in 24000:

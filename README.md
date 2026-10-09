@@ -30,8 +30,8 @@ while you play, even if the units cross each other.
 
 Hold a shoulder button with the ball to charge, release to shoot. Without the
 ball, press it to dash/tackle. Contact with a loose ball during the dash kicks
-it immediately. A dash is a slide tackle: afterwards the player gets up slowly
-and runs at a quarter speed for half a second. Team-colored ground triangles show aim and extend only as shots
+it immediately. A dash that misses (no opponent, no ball) leaves the player
+getting up slowly: a quarter speed for half a second. Team-colored ground triangles show aim and extend only as shots
 charge. A half-filled circle above each unit identifies the controlling stick:
 left half for the left stick, right half for the right. There is no hidden
 goal-aim assist in Dual mode.
