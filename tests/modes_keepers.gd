@@ -58,5 +58,19 @@ func _initialize() -> void:
 		saves.append(saved)
 	print("SAVES_PER_300 ", saves)
 	check(saves[0] > saves[1] + 40 and saves[1] > saves[2] + 40, "charged shots are substantially harder to keep")
+	s.setup(0, false, 12, 120, true)
+	s.phase = "play"
+	var attacker: int = s.players.find(s.players.filter(func(p): return p.team == 0)[0])
+	s.owner = attacker
+	s.players[attacker].pos = s.keepers[1].pos + Vector2(-1.2, .3)
+	s.update_keepers(1.0 / 60)
+	check(s.players[attacker].stun > 0 and s.owner == -1 and s.players[attacker].vel.x < 0, "walking into the keeper gets you knocked down and loses the ball")
+	s.players[attacker].stun = 0.0
+	s.players[attacker].pos = s.keepers[1].pos + Vector2(-1.0, 0)
+	s.update_keepers(1.0 / 60)
+	check(s.players[attacker].stun == 0, "the keeper needs a moment before the next slap")
+	s.players[attacker].pos = s.keepers[1].pos + Vector2(-4, 0)
+	s.update_keepers(1.0)
+	check(s.players[attacker].stun == 0, "players at a distance are left alone")
 	print("MODES_KEEPERS_RESULT ", failures, " failures")
 	quit(1 if failures else 0)

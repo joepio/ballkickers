@@ -56,7 +56,7 @@ func setup(humans: int = 1, coop: bool = false, seed_value: int = 42, seconds: f
 	keepers.clear()
 	for team in 2:
 		keepers.append({"team": team, "pos": Vector2(-(half_x - 1.6) if team == 0 else half_x - 1.6, 0),
-			"vel": 0.0, "dive": 0.0, "dive_dir": 1.0, "recovery": 0.0, "reaction": 0.0, "hold": 0.0, "kick": 0.0, "push": 0.0})
+			"vel": 0.0, "dive": 0.0, "dive_dir": 1.0, "recovery": 0.0, "reaction": 0.0, "hold": 0.0, "kick": 0.0, "push": 0.0, "slap": 0.0})
 	score = [0, 0]
 	power = [20.0, 20.0]
 	duration = seconds
@@ -91,7 +91,7 @@ func kickoff(team: int) -> void:
 	keeper_owner = -1
 	for k in keepers:
 		k.pos = Vector2(-(half_x - 1.6) if k.team == 0 else half_x - 1.6, 0)
-		for field in ["vel", "dive", "recovery", "reaction", "hold", "kick", "push"]: k[field] = 0.0
+		for field in ["vel", "dive", "recovery", "reaction", "hold", "kick", "push", "slap"]: k[field] = 0.0
 	for i in players.size():
 		var p: Dictionary = players[i]
 		var direction: float = 1 if p.team == 0 else -1
@@ -460,10 +460,38 @@ func ai_input(i: int, dt: float) -> Dictionary:
 static func vec3(v: Vector2, height: float = 0) -> Vector3:
 	return Vector3(v.x, height, v.y)
 
+## Walk up to the keeper and you get a clip round the ear: knocked down and
+## pushed back, losing the ball if you had it.
+const SLAP_REACH := 1.55
+
+func keeper_slap(k: Dictionary) -> void:
+	if k.slap > 0 or k.dive > 0 or keeper_owner == k.team: return
+	for i in players.size():
+		var p: Dictionary = players[i]
+		if p.team == k.team or p.stun > 0: continue
+		var away: Vector2 = p.pos - k.pos
+		if away.length() > SLAP_REACH: continue
+		var dir := away.normalized() if away.length() > .01 else Vector2(1 if k.team == 0 else -1, 0)
+		p.stun = .7
+		p.dash = 0.0
+		p.charge = 0.0
+		p.vel = dir * 14
+		k.kick = .2
+		k.slap = .8
+		if owner == i:
+			owner = -1
+			ball = vec3(p.pos, .5)
+			ball_velocity = vec3(dir * 9, 2.5)
+			pickup_lock = .2
+		events.append({"type": "hit", "pos": vec3(p.pos, 1), "team": k.team})
+		return
+
 func update_keepers(dt: float) -> void:
 	for k in keepers:
 		k.recovery = maxf(0, k.recovery - dt)
 		k.kick = maxf(0, k.kick - dt)
+		k.slap = maxf(0, k.slap - dt)
+		keeper_slap(k)
 		k.pos.x += k.push * dt
 		k.push = move_toward(k.push, 0.0, dt * 22)
 		if absf(k.push) < .1:

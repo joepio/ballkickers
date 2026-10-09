@@ -62,6 +62,8 @@ Keepers track the ball and commit to diving saves. Save probability decreases
 with ball speed and contact near the edge of their reach, using seeded randomness.
 Hard shots can break through or produce rebounds and push the keeper backward
 into the goal. Catches are distributed to an open teammate after half a second.
+Walk up to the other team's keeper and they slap you down: you are knocked back
+and lose the ball, after which the keeper needs a moment before the next one.
 Keepers wear yellow/purple kits and oversized gloves; player switching stays
 with the outfield players. In Classic 1v1, when a bot teammate receives possession, control
 automatically follows the ball, preferring the human who passed. Another human's
