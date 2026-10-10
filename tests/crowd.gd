@@ -17,9 +17,11 @@ func run() -> void:
 	var start := Time.get_ticks_msec()
 	while not crowd.is_ready() and Time.get_ticks_msec() - start < 60000:
 		await process_frame
-	check(crowd.is_ready(), "crowd sound synthesizes at boot")
+	check(crowd.is_ready(), "crowd sound is ready at boot")
+	check(not crowd._goal_samples.is_empty() and crowd._cheer_player.stream is AudioStreamOggVorbis,
+		"the stadium recordings are loaded")
 	check(crowd._murmur_player.stream.get_length() > 5.0, "murmur bed is a long seamless loop")
-	check(crowd._chant_wavs.size() == Crowd.CHANT_COUNT, "chants are composed")
+	check(crowd._chant_wavs.size() >= 3, "there are several chants")
 	check(crowd._murmur_player.bus == &"Match SFX", "crowd plays through the match limiter")
 	crowd.react({"type": "goal", "team": 0})
 	check(crowd.enthusiasm == 0.0, "an empty stadium does not react")
