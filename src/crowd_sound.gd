@@ -1,5 +1,5 @@
 extends "res://addons/crowd_sound/crowd_sound.gd"
-## Stadium crowd audio: the procedural crowd engine from ontola/godot-crowd-sound (from
+## Stadium crowd audio: the procedural crowd engine from joepio/godot-crowd-sound (from
 ## Growing Guns), voiced for football. Match events map onto its reactions;
 ## the beds play 2D because the stands surround the whole pitch.
 

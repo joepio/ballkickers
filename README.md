@@ -188,7 +188,7 @@ Simulation and input/lifecycle regression scripts run during the build.
 The audio uses non-repeating variations, softer contact levels, duplicate
 suppression and dedicated goal/whistle voices. `tests/audio.gd` checks playback.
 The crowd is synthesized at boot by the procedural crowd engine from Growing
-Guns (`addons/crowd_sound`, copied from ontola/godot-crowd-sound with its `sync.py`): a murmur bed,
+Guns (`addons/crowd_sound`, copied from joepio/godot-crowd-sound with its `sync.py`): a murmur bed,
 cheers, applause, "ooh"s, a goal roar and chants. `src/crowd_sound.gd` maps match
 events onto it and sets the mix; `tests/crowd.gd` checks it.
 `-- --demo --capture=E:/path/frame.png --capture-at=12 --exit-at=30` produces
