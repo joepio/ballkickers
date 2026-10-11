@@ -120,14 +120,26 @@ func _initialize() -> void:
 	var totals := {"shots": 0, "passes": 0, "tackles": 0, "supers": 0, "saves": 0}
 	for seed_value in [725, 18, 80385, 1337, 40]:
 		s.setup(0, false, seed_value, 120)
-		for frame in 24000:
+		var active_seconds := 0.0
+		var break_seconds := 0.0
+		# The match clock pauses during kickoffs and goal celebrations. A
+		# high-scoring match can legitimately exceed 200 seconds of wall time.
+		# Still bound active play (including overtime) and every stoppage so
+		# this cannot hide a stuck match or a celebration that never ends.
+		for frame in 72000:
+			if s.phase == "play":
+				active_seconds += 1.0 / 120
+				break_seconds = 0.0
+			else:
+				break_seconds += 1.0 / 120
+			if active_seconds >= 200.0 or break_seconds > 5.0: break
 			s.step(1.0 / 120)
 			if s.phase == "result": break
 			if not s.ball.is_finite(): check(false, "finite ball"); break
 		for key in totals: totals[key] += s.stats[key]
 		total_goals += s.stats.goals
 		check(s.stats.goals >= 2, "seed %d produces goals, not a possession stalemate (%s)" % [seed_value, str(s.score)])
-		check(s.phase == "result", "seed %d finishes within 200 seconds" % seed_value)
+		check(s.phase == "result", "seed %d finishes within 200 active seconds; stoppages stay under five seconds (%.1f active, %.1f total)" % [seed_value, active_seconds, s.elapsed])
 	print("MATCH_TOTALS ", total_goals, " goals ", totals)
 	check(totals.passes > 5 and totals.tackles > 10 and totals.shots > 20, "bots pass, tackle and shoot across matches")
 	check(totals.saves > 10, "keepers make saves during real seeded matches")
