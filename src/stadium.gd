@@ -131,11 +131,17 @@ func build() -> void:
 	sun.light_color = Color("ffe4b5")
 	sun.light_energy = .62
 	sun.shadow_enabled = true
-	# Two cascades suit the perspective camera: crisp shadows on the pitch and
-	# no stretched, streaky shadow texels on the far stands.
-	sun.directional_shadow_max_distance = 110
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.shadow_normal_bias = 1.6
+	# One shadow direction keeps faces readable in broadcast close-ups. Four
+	# cascades reserve detail near the lens instead of stretching pitch-sized
+	# texels across cheeks and clothing.
+	sun.directional_shadow_max_distance = 90
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_split_1 = .05
+	sun.directional_shadow_split_2 = .18
+	sun.directional_shadow_split_3 = .45
+	sun.directional_shadow_blend_splits = true
+	sun.shadow_bias = .2
+	sun.shadow_normal_bias = 1.5
 	add_child(sun)
 	box(self, Vector3(0, -1.6, 0), Vector3(200, .6, 200), Color("7fae63"))
 	box(self, Vector3(0, -1.32, 0), Vector3(78, .2, 58), Color("aeb3a6"))
@@ -264,19 +270,15 @@ func build_bowl() -> void:
 			for n in 6:
 				var lamp := box(self, Vector3.ZERO, Vector3(1.0, .9, .08), Color("fff6d8"), .9)
 				lamp.transform = head.transform * Transform3D(Basis.IDENTITY, Vector3((n % 3 - 1) * 1.25, (n / 3 - .5) * 1.15, .2))
-			# Each tower throws a real light, so everyone on the pitch gets the
-			# classic four-way floodlight shadow.
+			# Towers fill the stadium, but the sun owns the cast shadows. Four
+			# additional coarse shadow maps made close-ups look striped.
 			var flood := SpotLight3D.new()
 			flood.light_color = Color("fff1d6")
 			flood.light_energy = .28
 			flood.spot_range = 80
 			flood.spot_angle = 30
 			flood.spot_attenuation = .2
-			flood.shadow_enabled = true
-			flood.shadow_bias = .12
-			flood.shadow_normal_bias = 2.5
-			flood.shadow_opacity = 1.0
-			flood.shadow_blur = 1.5
+			flood.shadow_enabled = false
 			add_child(flood)
 			floodlights.append({"light": flood, "at": head.position})
 	place_floodlights(1.0)
