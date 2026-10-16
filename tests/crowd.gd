@@ -36,5 +36,24 @@ func run() -> void:
 	crowd.react({"type": "unknown"})
 	crowd.active = false
 	check(crowd.enthusiasm == 0.0 and crowd.fear == 0.0, "muting resets the mood")
+	crowd.set_process(false)
+	crowd.active = true
+	crowd.enthusiasm = 0.2
+	crowd.advance_chatter(0.1)
+	check(crowd.murmur_db <= -80.0, "conversation starts with silence")
+	crowd._chatter_wait = 0.0
+	crowd.advance_chatter(0.35)
+	check(crowd.murmur_db <= -33.0 and crowd.murmur_db > -60.0, "short chatter is quiet and fades in")
+	crowd.advance_chatter(2.5)
+	check(crowd.murmur_db <= -80.0 and crowd._chatter_wait >= 18.0, "chatter ends and leaves a long silent gap")
+	crowd._chatter_wait = 0.0
+	crowd.advance_chatter(0.4)
+	crowd.enthusiasm = 1.0
+	crowd.advance_chatter(0.1)
+	check(crowd.murmur_db <= -80.0, "celebration interrupts chatter without muting cheers")
+	check(crowd.cheer_db == -15.0 and crowd.reaction_db == -12.0, "other crowd layers retain their mix")
+	crowd.active = false
+	crowd.advance_chatter(0.1)
+	check(crowd._chatter_age < 0.0 and crowd._chatter_wait >= 5.0, "pause and leaving reset chatter")
 	print("CROWD_RESULT ", failures, " failures")
 	quit(1 if failures else 0)

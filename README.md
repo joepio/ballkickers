@@ -190,7 +190,9 @@ suppression and dedicated goal/whistle voices. `tests/audio.gd` checks playback.
 The crowd is synthesized at boot by the procedural crowd engine from Growing
 Guns (`addons/crowd_sound`, copied from joepio/godot-crowd-sound with its `sync.py`): a murmur bed,
 cheers, applause, "ooh"s, a goal roar and chants. `src/crowd_sound.gd` maps match
-events onto it and sets the mix; `tests/crowd.gd` checks it.
+events onto it and sets the mix. The conversational murmur plays quietly for
+1.2–2.4 seconds at a time, with 18–32 seconds of silence between fragments;
+cheers and goal reactions retain their original mix. `tests/crowd.gd` checks it.
 `-- --demo --capture=E:/path/frame.png --capture-at=12 --exit-at=30` produces
 repeatable visual captures and frame statistics. Tests use fixed seeds.
 
