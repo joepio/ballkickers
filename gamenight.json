@@ -1,0 +1,37 @@
+{
+  "$schema": "https://raw.githubusercontent.com/ontola/gamenight/main/catalog/schema.json",
+  "id": "ballkickers",
+  "title": "Ballkickers",
+  "tagline": "Chaotic party football: charge shots, dash tackles and diving keepers. Dual-stick 1v1 or single-unit 2v2 and 3v3.",
+  "developer": "Joep Meindertsma",
+  "players": {
+    "min": 1,
+    "max": 6,
+    "best": 4
+  },
+  "match_minutes": 2,
+  "price": "free",
+  "tags": [
+    "football",
+    "sports",
+    "party",
+    "versus",
+    "godot"
+  ],
+  "color": "#ff7547",
+  "integration": {
+    "level": "integrated",
+    "protocol": 1
+  },
+  "requirements": {
+    "disk_mb": 160,
+    "ram_mb": 512,
+    "cpu": "Dual-core CPU",
+    "gpu": "OpenGL 3.3 compatible graphics"
+  },
+  "links": {
+    "source": "https://github.com/joepio/ballkickers",
+    "homepage": "https://github.com/joepio/ballkickers",
+    "releases": "https://github.com/joepio/ballkickers/releases"
+  }
+}
