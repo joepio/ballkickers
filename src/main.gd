@@ -278,7 +278,7 @@ func read_control(h: int) -> Dictionary:
 		if (buttons != 0 or move.length() > .1) and Time.get_ticks_msec() - last_activity > 500:
 			last_activity = Time.get_ticks_msec()
 			var seat: Dictionary = party.human_seats()[h]
-			party.send({"type": "controller_input", "session": party.session, "controller": seat.get("controller", "")})
+			GameNight.report_activity(int(seat.get("index", -1)))
 		if pressed & (1 << 6) and overlay_ready:
 			overlay_ready = false
 			GameNight.request_overlay()
@@ -323,7 +323,7 @@ func read_dual_control(h: int, half: int) -> Dictionary:
 	previous[key] = action
 	if party.managed and (action or move.length() > .1) and Time.get_ticks_msec() - last_activity > 500:
 		last_activity = Time.get_ticks_msec()
-		party.send({"type": "controller_input", "session": party.session, "controller": party.human_seats()[h].get("controller", "")})
+		GameNight.report_activity(int(party.human_seats()[h].get("index", -1)))
 	return {"move": move.limit_length(), "shoot": action, "tackle": pressed, "pass": false, "sprint": false, "switch": false}
 
 func _process(dt: float) -> void:
@@ -891,7 +891,7 @@ func on_party_command(message: Dictionary) -> void:
 			sim.setup(humans, false, 725, match_seconds, dual_stick, team_size)
 			sync_arena()
 			apply_profiles()
-			party.send({"type": "participation", "session": party.session, "instant_join": false})
+			GameNight.notify_participation(party.session, false)
 			# Wait until the renderer has prepared the arena before Ready. A
 			# warming game is minimized, and a minimized window never draws, so
 			# only wait while the window is actually on screen.

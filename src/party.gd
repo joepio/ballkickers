@@ -36,10 +36,6 @@ func _ready() -> void:
 func handle(message: Dictionary) -> void:
 	GameNight._handle(message)
 
-## Protocol messages the SDK has no helper for (participation, activity).
-func send(message: Dictionary) -> void:
-	if managed: GameNight._send(message)
-
 func update_profiles(players: Array) -> void:
 	for p in players: profiles[str(p.get("id", ""))] = p
 
