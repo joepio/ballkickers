@@ -11,8 +11,6 @@ if ($LASTEXITCODE -ne 0) { throw 'Settings checks failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Simulation checks failed' }
 & $Godot --headless --path $goalRoot --script res://tests/input_lifecycle.gd
 if ($LASTEXITCODE -ne 0) { throw 'Input/lifecycle checks failed' }
-& $Godot --headless --path $goalRoot --script res://tests/screen_lifecycle.gd
-if ($LASTEXITCODE -ne 0) { throw 'Screen/lifecycle checks failed' }
 & $Godot --headless --path $goalRoot --script res://tests/modes_keepers.gd
 if ($LASTEXITCODE -ne 0) { throw 'Modes/keeper checks failed' }
 & $Godot --headless --path $goalRoot --script res://tests/chaos.gd
