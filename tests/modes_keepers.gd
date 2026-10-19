@@ -72,5 +72,67 @@ func _initialize() -> void:
 	s.players[attacker].pos = s.keepers[1].pos + Vector2(-4, 0)
 	s.update_keepers(1.0)
 	check(s.players[attacker].stun == 0, "players at a distance are left alone")
+	three_way_checks()
 	print("MODES_KEEPERS_RESULT ", failures, " failures")
 	quit(1 if failures else 0)
+
+
+func inside(s, at: Vector2) -> bool:
+	return s.confine(at, 0.0).distance_to(at) < .01
+
+func three_way_checks() -> void:
+	var s = Match.new()
+	s.setup(3, false, 21, 120, true, 1, true)
+	s.chaos.level = 0
+	check(s.teams == 3 and s.players.size() == 3 and s.keepers.size() == 3 and s.score.size() == 3, "three-way has three teams of one, three keepers and three scores")
+	check(s.players.all(func(p): return p.human == p.team), "each of three people gets their own team")
+	var placed := true
+	for i in 3:
+		var p: Dictionary = s.players[i]
+		var g: Dictionary = s.goals[p.team]
+		placed = placed and inside(s, p.pos) and inside(s, s.keepers[i].pos) and p.face.dot(g.n) > .99
+	check(placed, "kickoff places everyone inside the arena, facing out of their own goal")
+	# A shot into blue's goal, last touched by orange, is orange's goal.
+	s.phase = "play"
+	var g: Dictionary = s.goals[1]
+	s.last_touch = 0
+	s.keepers[1].pos = g.c + g.n * 1.6 + g.t * 3.2
+	s.keepers[1].recovery = 3.0
+	s.ball = Vector3(g.c.x + g.n.x * 2, .5, g.c.y + g.n.y * 2)
+	s.ball_velocity = Vector3(-g.n.x * 30, 0, -g.n.y * 30)
+	for frame in 20: s.move_ball(1.0 / 60)
+	check(s.phase == "goal" and s.score == [1, 0, 0] and s.conceded_team == 1, "orange scores in blue's goal (%s)" % [s.score])
+	for frame in 200: s.step(1.0 / 60)
+	check(s.phase == "kickoff" and s.players[1].pos.distance_to(s.arena_center) < 1.5, "the team that conceded kicks off")
+	# An own goal goes to the last other team on the ball.
+	s.phase = "play"
+	g = s.goals[2]
+	s.last_touch = 1
+	s.touch(2)
+	s.keepers[2].pos = g.c + g.n * 1.6 + g.t * 3.2
+	s.keepers[2].recovery = 3.0
+	s.ball = Vector3(g.c.x + g.n.x * 2, .5, g.c.y + g.n.y * 2)
+	s.ball_velocity = Vector3(-g.n.x * 30, 0, -g.n.y * 30)
+	for frame in 20: s.move_ball(1.0 / 60)
+	check(s.phase == "goal" and s.score == [1, 1, 0], "a lime own goal counts for blue, who touched it before (%s)" % [s.score])
+	# Corner walls send the ball back in.
+	s.setup(0, false, 22, 120, true, 1, true)
+	s.phase = "play"
+	var corner: Vector2 = s.walls[3].p
+	s.ball = Vector3(s.arena_center.x, .5, s.arena_center.y)
+	var toward: Vector2 = (corner - s.arena_center).normalized() * 40
+	s.ball_velocity = Vector3(toward.x, 0, toward.y)
+	for frame in 60: s.move_ball(1.0 / 60)
+	check(inside(s, Vector2(s.ball.x, s.ball.z)) and s.phase == "play", "the cut-off corners bounce the ball back into play")
+	# A full bot match stays inside the arena and every team can score.
+	s.setup(0, false, 23, 240, true, 1, true)
+	var escaped := 0
+	for frame in 60 * 900:
+		if s.phase == "result": break
+		s.step(1.0 / 60)
+		if s.phase == "play" and not inside(s, Vector2(s.ball.x, s.ball.z)) and s.keeper_owner < 0: escaped += 1
+		for p in s.players: if not inside(s, p.pos): escaped += 1
+	print("THREE_WAY_SCORE ", s.score)
+	check(escaped == 0, "players and ball stay inside the arena for a whole match (%d escapes)" % escaped)
+	check(s.score.filter(func(n): return n > 0).size() >= 2, "goals are spread over the teams in a bot match (%s)" % [s.score])
+	check(s.phase == "result" and s.events.size() >= 0, "a three-way match ends")

@@ -4,6 +4,11 @@ const BLUE = Color("58caff")
 const INK = Color("182d41")
 const CREAM = Color("fff2d2")
 var arena_nodes: Array = []
+var rect: Node3D
+var tri: Node3D
+const LIME = Color("8fdc5a")
+const TEAM_COLORS = [ORANGE, BLUE, LIME]
+const TEAM_NAMES = ["TANGERINES", "BLUEBERRIES", "LIMES"]
 var pitch_size := 1
 var mats: Dictionary = {}
 var crowd: Node3D
@@ -13,6 +18,9 @@ var board: Node3D
 var board_scores: Array = []
 var board_bars: Array = []
 var board_clock: Label3D
+var board_panels: Array = []
+var board_title: Label3D
+var board_three := false
 var blimp: Node3D
 var blimp_angle := 0.0
 static var display_font: Font
@@ -147,37 +155,41 @@ func build() -> void:
 	box(self, Vector3(0, -1.32, 0), Vector3(78, .2, 58), Color("aeb3a6"))
 	box(self, Vector3(0, -.8, 0), Vector3(49, 1.4, 31), INK)
 	box(self, Vector3(0, -.32, 0), Vector3(45, .5, 27), Color("104c4b"))
+	# The two-team pitch lives in its own node so three-way can swap it out.
+	rect = Node3D.new()
+	rect.name = "RectPitch"
+	add_child(rect)
 	for i in 14:
-		box(self, Vector3(-19.5 + i * 3, .01, 0), Vector3(3, .08, 24), Color("368e72") if i % 2 == 0 else Color("32866a"))
+		box(rect, Vector3(-19.5 + i * 3, .01, 0), Vector3(3, .08, 24), Color("368e72") if i % 2 == 0 else Color("32866a"))
 	var white := Color("dcebc4")
-	for z in [-11.7, 11.7]: box(self, Vector3(0, .066, z), Vector3(41.5, .02, .11), white)
-	for x in [-20.7, 0, 20.7]: box(self, Vector3(x, .066, 0), Vector3(.11, .02, 23.5), white)
-	ring(self, Vector3(0, .07, 0), 3.6, .055, white)
-	var center := sphere(self, Vector3(0, .07, 0), .18, white)
+	for z in [-11.7, 11.7]: box(rect, Vector3(0, .066, z), Vector3(41.5, .02, .11), white)
+	for x in [-20.7, 0, 20.7]: box(rect, Vector3(x, .066, 0), Vector3(.11, .02, 23.5), white)
+	ring(rect, Vector3(0, .07, 0), 3.6, .055, white)
+	var center := sphere(rect, Vector3(0, .07, 0), .18, white)
 	center.scale.y = .1
 	for side in [-1, 1]:
 		var color: Color = BLUE if side == 1 else ORANGE
-		box(self, Vector3(side * 16, .07, 0), Vector3(.10, .02, 11.5), white)
-		for z in [-5.75, 5.75]: box(self, Vector3(side * 18.4, .07, z), Vector3(4.9, .02, .11), white)
+		box(rect, Vector3(side * 16, .07, 0), Vector3(.10, .02, 11.5), white)
+		for z in [-5.75, 5.75]: box(rect, Vector3(side * 18.4, .07, z), Vector3(4.9, .02, .11), white)
 		for z in [-8.1, 8.1]:
-			var board := box(self, Vector3(side * 21.4, .55, z), Vector3(.65, 1.1, 8.7), color)
+			var board := box(rect, Vector3(side * 21.4, .55, z), Vector3(.65, 1.1, 8.7), color)
 			board.set_meta("end_board", true)
-			var trim := box(self, Vector3(side * 21.4, 1.14, z), Vector3(.78, .16, 8.7), CREAM)
+			var trim := box(rect, Vector3(side * 21.4, 1.14, z), Vector3(.78, .16, 8.7), CREAM)
 			trim.set_meta("end_board", true)
 		# Real net silhouette, recessed beyond the goal line.
 		for z in [-3.7, 3.7]:
-			rod(self, Vector3(side * 21.0, .05, z), Vector3(side * 21.0, 3.15, z), .15, CREAM)
-			rod(self, Vector3(side * 21.0, 3.15, z), Vector3(side * 23.2, 2.5, z), .11, color)
-		rod(self, Vector3(side * 21, 3.15, -3.7), Vector3(side * 21, 3.15, 3.7), .15, CREAM)
+			rod(rect, Vector3(side * 21.0, .05, z), Vector3(side * 21.0, 3.15, z), .15, CREAM)
+			rod(rect, Vector3(side * 21.0, 3.15, z), Vector3(side * 23.2, 2.5, z), .11, color)
+		rod(rect, Vector3(side * 21, 3.15, -3.7), Vector3(side * 21, 3.15, 3.7), .15, CREAM)
 		for n in 16:
 			var z: float = -3.7 + n * .4933
-			rod(self, Vector3(side * 23.2, .08, z), Vector3(side * 23.2, 2.5, z), .023, Color("b8d4d5"))
-			rod(self, Vector3(side * 21, 3.15, z), Vector3(side * 23.2, 2.5, z), .023, Color("b8d4d5"))
+			rod(rect, Vector3(side * 23.2, .08, z), Vector3(side * 23.2, 2.5, z), .023, Color("b8d4d5"))
+			rod(rect, Vector3(side * 21, 3.15, z), Vector3(side * 23.2, 2.5, z), .023, Color("b8d4d5"))
 		for n in 6:
-			rod(self, Vector3(side * 23.2, n * .5, -3.7), Vector3(side * 23.2, n * .5, 3.7), .023, Color("b8d4d5"))
+			rod(rect, Vector3(side * 23.2, n * .5, -3.7), Vector3(side * 23.2, n * .5, 3.7), .023, Color("b8d4d5"))
 		for z in [-12.45, 12.45]:
-			box(self, Vector3(side * 10.5, .46, z), Vector3(21, .95, .55), INK)
-			box(self, Vector3(side * 10.5, .98, z), Vector3(21, .14, .72), color)
+			box(rect, Vector3(side * 10.5, .46, z), Vector3(21, .95, .55), INK)
+			box(rect, Vector3(side * 10.5, .98, z), Vector3(21, .14, .72), color)
 	# Rear stands, chunky canopies and luminous scoreboard.
 	for tier in 3:
 		box(self, Vector3(0, .2 + tier * .65, -15.1 - tier * 1.25), Vector3(49, 1 + tier * .6, 1.3), Color("344c68"))
@@ -193,19 +205,129 @@ func build() -> void:
 	box(self, Vector3(0, 4.3, -19), Vector3(14.2, 3.6, .55), INK)
 	box(self, Vector3(0, 6.2, -19), Vector3(14.5, .16, .65), Color("ffc94d"))
 	for x in [-15, -5, 5, 15]:
-		label3(self, "PLAY LOUD" if abs(x) == 15 else "RUSH!", Vector3(x, .5, -12.1), 35, ORANGE if x < 0 else BLUE)
+		label3(rect, "PLAY LOUD" if abs(x) == 15 else "RUSH!", Vector3(x, .5, -12.1), 35, ORANGE if x < 0 else BLUE)
 	build_bowl()
 	crowd = preload("res://src/crowd.gd").new()
 	add_child(crowd)
 	# Tag the goal/net before batching so it can move without stretching.
-	for child in get_children():
+	for child in rect.get_children():
 		if child is MeshInstance3D and absf(child.position.x) >= 20.9 and absf(child.position.x) <= 23.3 and absf(child.position.z) < 3.9:
 			child.set_meta("goal", true)
 	batch_static_geometry()
+	batch_children(rect)
 	build_board()
-	for child in get_children():
-		if child is GeometryInstance3D:
-			arena_nodes.append({"node": child, "transform": child.transform})
+	for parent in [self, rect]:
+		for child in parent.get_children():
+			if child is GeometryInstance3D:
+				arena_nodes.append({"node": child, "transform": child.transform})
+	build_tri_pitch()
+
+const GRASS_STRIPES = """shader_type spatial;
+uniform vec4 light_grass : source_color;
+uniform vec4 dark_grass : source_color;
+varying vec3 world;
+void vertex() { world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	// The same 3 m mowing stripes as the two-team pitch.
+	ALBEDO = mix(light_grass.rgb, dark_grass.rgb, step(0.5, fract((world.x + 21.0) / 6.0)));
+	ROUGHNESS = 0.78;
+}"""
+
+## A flat strip from a to b on the grass, for pitch markings.
+func line_box(parent: Node3D, a: Vector2, b: Vector2, width: float, height: float, y: float, color: Color) -> MeshInstance3D:
+	var mid := (a + b) * .5
+	var piece := box(parent, Vector3(mid.x, y, mid.y), Vector3(a.distance_to(b), height, width), color)
+	piece.rotation.y = -atan2(b.y - a.y, b.x - a.x)
+	return piece
+
+func build_tri_pitch() -> void:
+	# Three-way arena: a triangle with its corners cut off, a goal in the
+	# middle of each long side. The geometry comes from the simulation.
+	tri = Node3D.new()
+	tri.name = "TriPitch"
+	add_child(tri)
+	var m = preload("res://src/match.gd").new()
+	m.setup(0, false, 1, 120, true, 1, true)
+	var corners: Array = m.arena_corners()
+	var center: Vector2 = m.arena_center
+	var grass := SurfaceTool.new()
+	grass.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in corners.size():
+		var a: Vector2 = center + (corners[i] - center) * 1.03
+		var b: Vector2 = center + (corners[(i + 1) % corners.size()] - center) * 1.03
+		for v in [center, b, a]:
+			grass.set_normal(Vector3.UP)
+			grass.add_vertex(Vector3(v.x, .05, v.y))
+	var field := MeshInstance3D.new()
+	field.mesh = grass.commit()
+	var stripes := ShaderMaterial.new()
+	stripes.shader = Shader.new()
+	stripes.shader.code = GRASS_STRIPES
+	stripes.set_shader_parameter("light_grass", Color("368e72"))
+	stripes.set_shader_parameter("dark_grass", Color("32866a"))
+	field.material_override = stripes
+	tri.add_child(field)
+	var white := Color("dcebc4")
+	for i in corners.size():
+		var a: Vector2 = corners[i]
+		var b: Vector2 = corners[(i + 1) % corners.size()]
+		line_box(tri, center + (a - center) * .985, center + (b - center) * .985, .11, .02, .066, white)
+	ring(tri, Vector3(center.x, .07, center.y), 3.6, .055, white)
+	var spot := sphere(tri, Vector3(center.x, .07, center.y), .18, white)
+	spot.scale.y = .1
+	for team in 3:
+		var g: Dictionary = m.goals[team]
+		var c: Vector2 = g.c
+		var n: Vector2 = g.n
+		var t: Vector2 = g.t
+		var color: Color = TEAM_COLORS[team]
+		# Penalty box and a line from the spot to the box, like the big pitch.
+		for side in [-1, 1]: line_box(tri, c + t * side * 5.75 + n * .3, c + t * side * 5.75 + n * 5.0, .11, .02, .07, white)
+		line_box(tri, c + n * 5.0 - t * 5.75, c + n * 5.0 + t * 5.75, .11, .02, .07, white)
+		# Goal: posts, bar and a net that runs back from the line.
+		var out := -n
+		for side in [-1.0, 1.0]:
+			var post: Vector2 = c + t * side * 3.7
+			var back: Vector2 = post + out * 2.2
+			rod(tri, Vector3(post.x, .05, post.y), Vector3(post.x, 3.15, post.y), .15, CREAM)
+			rod(tri, Vector3(post.x, 3.15, post.y), Vector3(back.x, 2.5, back.y), .11, color)
+		var left: Vector2 = c - t * 3.7
+		var right: Vector2 = c + t * 3.7
+		rod(tri, Vector3(left.x, 3.15, left.y), Vector3(right.x, 3.15, right.y), .15, CREAM)
+		for k in 16:
+			var at: Vector2 = c + t * (-3.7 + k * .4933)
+			var rear: Vector2 = at + out * 2.2
+			rod(tri, Vector3(rear.x, .08, rear.y), Vector3(rear.x, 2.5, rear.y), .023, Color("b8d4d5"))
+			rod(tri, Vector3(at.x, 3.15, at.y), Vector3(rear.x, 2.5, rear.y), .023, Color("b8d4d5"))
+		for k in 6:
+			var l: Vector2 = left + out * 2.2
+			var r: Vector2 = right + out * 2.2
+			rod(tri, Vector3(l.x, k * .5, l.y), Vector3(r.x, k * .5, r.y), .023, Color("b8d4d5"))
+	# Boards around the outside: team colours beside each goal, ink on the
+	# cut-off corners.
+	for w in m.walls:
+		var ends: Array = []
+		for corner in corners:
+			if absf((corner - w.p).dot(w.n)) < .01: ends.append(corner)
+		if ends.size() < 2: continue
+		var along: Vector2 = (ends[1] - ends[0]).normalized()
+		var behind: Vector2 = -w.n * .4
+		var pieces: Array = [[ends[0], ends[1]]]
+		var color: Color = INK
+		if w.goal >= 0:
+			color = TEAM_COLORS[w.goal]
+			var mouth: Vector2 = m.goals[w.goal].c
+			var a_side: Vector2 = mouth - along * 3.75 if (mouth - along * 3.75).distance_to(ends[0]) < (mouth + along * 3.75).distance_to(ends[0]) else mouth + along * 3.75
+			var b_side: Vector2 = mouth * 2 - a_side
+			pieces = [[ends[0], a_side], [b_side, ends[1]]]
+		for piece in pieces:
+			var a: Vector2 = piece[0] + behind
+			var b: Vector2 = piece[1] + behind
+			line_box(tri, a, b, .65, 1.1, .55, color)
+			# Seen from the gantry the top shows most, so the goal sides wear
+			# their team colour there too.
+			line_box(tri, a, b, .78, .16, 1.14, CREAM if w.goal < 0 else color.lightened(.15))
+	batch_children(tri)
 
 func build_board() -> void:
 	# The stadium screen is the scoreboard: score, clock and power meters live
@@ -214,31 +336,43 @@ func build_board() -> void:
 	board.name = "Board"
 	board.position = Vector3(0, 0, -18.68)
 	add_child(board)
-	for team in 2:
-		var x := -4.6 if team == 0 else 4.6
-		var color: Color = ORANGE if team == 0 else BLUE
-		box(board, Vector3(x, 4.35, 0), Vector3(4.2, 2.5, .06), color)
-		board_scores.append(label3(board, "0", Vector3(x, 4.3, .06), 170, INK))
-		box(board, Vector3(x, 2.85, 0), Vector3(4.2, .26, .06), Color("0d1a26"))
-		var bar := box(board, Vector3(x, 2.85, .05), Vector3(4.2, .26, .06), color, .4)
+	for team in 3:
+		var color: Color = TEAM_COLORS[team]
+		var panel := Node3D.new()
+		board.add_child(panel)
+		box(panel, Vector3(0, 4.35, 0), Vector3(4.2, 2.5, .06), color)
+		board_scores.append(label3(panel, "0", Vector3(0, 4.3, .06), 170, INK))
+		box(panel, Vector3(0, 2.85, 0), Vector3(4.2, .26, .06), Color("0d1a26"))
+		var bar := box(panel, Vector3(0, 2.85, .05), Vector3(4.2, .26, .06), color, .4)
 		board_bars.append(bar)
-	label3(board, "BALLKICKERS", Vector3(0, 5.3, .04), 34, Color("ffc94d"))
+		board_panels.append(panel)
+	board_title = label3(board, "BALLKICKERS", Vector3(0, 5.3, .04), 34, Color("ffc94d"))
 	board_clock = label3(board, "2:00", Vector3(0, 4.15, .04), 110, CREAM)
+	layout_board(false)
+
+## Two teams flank the clock; three-way puts the lime panel in the middle,
+## between orange and blue, and moves the clock up into the title strip.
+func layout_board(three: bool) -> void:
+	board_three = three
+	for team in 3:
+		board_panels[team].position.x = [-4.6, 4.6, 0.0][team]
+		board_panels[team].visible = team < 2 or three
+	board_title.visible = not three
+	board_clock.position.y = 5.9 if three else 4.15
 
 func update_board(sim, time: float) -> void:
-	for team in 2:
+	for team in sim.teams:
 		board_scores[team].text = str(sim.score[team])
 		var power: float = clampf(sim.power[team] / 100.0, 0, 1)
 		var bar: MeshInstance3D = board_bars[team]
-		var x := -4.6 if team == 0 else 4.6
 		bar.scale.x = maxf(.001, power)
-		# Both meters fill outwards from the clock.
-		bar.position.x = x + 2.1 * (1 - power) * (1 if team == 0 else -1)
+		# The meters fill outwards from the clock (the middle one from the left).
+		bar.position.x = 2.1 * (1 - power) * [1, -1, -1][team]
 		var ready := power >= .99 and fmod(time, .5) < .3
-		bar.material_override = material(Color("ffc94d") if ready else (ORANGE if team == 0 else BLUE), .9 if ready else .4)
+		bar.material_override = material(Color("ffc94d") if ready else TEAM_COLORS[team], .9 if ready else .4)
 	var seconds := int(ceil(sim.clock))
 	board_clock.text = "GOLDEN\nGOAL" if sim.overtime else "%d:%02d" % [seconds / 60, seconds % 60]
-	board_clock.font_size = 56 if sim.overtime else 110
+	board_clock.font_size = (56 if sim.overtime else 110) if not board_three else (30 if sim.overtime else 50)
 
 func build_bowl() -> void:
 	# Near stand, dugouts, corners and the outer wall that closes the stadium.
@@ -470,9 +604,12 @@ func _process(dt: float) -> void:
 	blimp.position = Vector3(cos(blimp_angle) * 70, 30, sin(blimp_angle) * 55 - 10)
 	blimp.rotation.y = -blimp_angle - PI / 2
 
-func resize_pitch(teams: int) -> void:
+func resize_pitch(teams: int, three: bool = false) -> void:
 	pitch_size = teams
-	var factor: float = preload("res://src/match.gd").pitch_scale(teams)
+	var factor: float = preload("res://src/match.gd").pitch_scale(teams, three)
+	rect.visible = not three
+	tri.visible = three
+	layout_board(three)
 	crowd.layout(factor)
 	scenery.scale = Vector3.ONE * factor
 	place_floodlights(factor)
@@ -521,6 +658,15 @@ func batch_children(parent: Node3D) -> void:
 		parent.remove_child(source)
 		source.queue_free()
 
+const KEEPER_COLORS = [Color("ffcf4d"), Color("c38aff"), Color("ff8fc8")]
+
+## Re-dress an athlete in a team's kit (three-way needs a third colour).
+func paint_kit(root: Node, color: Color) -> void:
+	for child in root.get_children():
+		if child is MeshInstance3D and child.has_meta("kit"):
+			child.material_override = material(color.darkened(.25) if child.get_meta("kit") == "boot" else color)
+		paint_kit(child, color)
+
 func make_player(index: int, keeper: bool = false) -> Node3D:
 	var root := Node3D.new()
 	root.name = "Athlete%d" % index
@@ -530,7 +676,7 @@ func make_player(index: int, keeper: bool = false) -> Node3D:
 	var body := Node3D.new()
 	body.name = "Body"
 	root.add_child(body)
-	capsule(body, Vector3(0, .92, 0), .43, 1.03, color)
+	capsule(body, Vector3(0, .92, 0), .43, 1.03, color).set_meta("kit", "shirt")
 	capsule(body, Vector3(0, .49, 0), .37, .55, INK)
 	var head := sphere(body, Vector3(0, 1.72, 0), .46, CREAM)
 	head.name = "Head"
@@ -547,12 +693,13 @@ func make_player(index: int, keeper: bool = false) -> Node3D:
 		body.add_child(leg)
 		capsule(leg, Vector3(0, -.16, 0), .16, .42, INK if keeper else CREAM)
 		var boot := capsule(leg, Vector3(0, -.36, .10), .21, .55, color.darkened(.25))
+		boot.set_meta("kit", "boot")
 		boot.rotation.x = PI / 2
 		var arm := Node3D.new()
 		arm.name = "ArmL" if side == -1 else "ArmR"
 		arm.position = Vector3(side * .47, 1.22, 0)
 		body.add_child(arm)
-		capsule(arm, Vector3(side * .04, -.17, 0), .16, .46, color)
+		capsule(arm, Vector3(side * .04, -.17, 0), .16, .46, color).set_meta("kit", "shirt")
 		sphere(arm, Vector3(side * .09, -.37, 0), .30 if keeper else .21, CREAM)
 	var mouth := box(body, Vector3(0, 1.58, .43), Vector3(.15, .045, .04), INK)
 	mouth.name = "Mouth"
@@ -572,6 +719,7 @@ func make_player(index: int, keeper: bool = false) -> Node3D:
 	var badge := label3(body, "GK" if keeper else str(index / 2 + 1), Vector3(0, 1.04, -.435), 32, CREAM)
 	badge.rotation.y = PI
 	var marker := ring(root, Vector3(0, .11, 0), .83, .085, color)
+	marker.set_meta("kit", "shirt")
 	marker.name = "Marker"
 	return root
 
@@ -613,7 +761,7 @@ func add_hairstyle(body: Node3D, style: int, hair: Color) -> void:
 
 func make_coach(team: int) -> Node3D:
 	# Touchline managers: suit, team tie and cap, one moustache, one pair of glasses.
-	var color: Color = ORANGE if team == 0 else BLUE
+	var color: Color = TEAM_COLORS[team]
 	var root := Node3D.new()
 	root.name = "Coach%d" % team
 	add_child(root)
@@ -621,7 +769,7 @@ func make_coach(team: int) -> Node3D:
 	var body := Node3D.new()
 	body.name = "Body"
 	root.add_child(body)
-	var suit := Color("2a3a4f") if team == 0 else Color("3b2f4a")
+	var suit: Color = [Color("2a3a4f"), Color("3b2f4a"), Color("2f4a3a")][team]
 	capsule(body, Vector3(0, .95, 0), .42, 1.1, suit)
 	box(body, Vector3(0, 1.12, .36), Vector3(.22, .5, .06), CREAM)
 	box(body, Vector3(0, 1.08, .4), Vector3(.08, .42, .04), color)

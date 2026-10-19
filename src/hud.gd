@@ -1,4 +1,6 @@
 extends Control
+const TEAM_COLORS = preload("res://src/stadium.gd").TEAM_COLORS
+const TEAM_NAMES = preload("res://src/stadium.gd").TEAM_NAMES
 const INK = Color("172b3c")
 const CREAM = Color("fff2d2")
 const GOLD = Color("ffce56")
@@ -82,7 +84,7 @@ func _draw() -> void:
 		if p.human < 0 or game.replay_showing(): continue
 		var position: Vector2 = game.camera.unproject_position(Vector3(p.pos.x, 2.85, p.pos.y))
 		position /= Vector2(size.x / 1600.0, size.y / 900.0)
-		var color: Color = ORANGE if p.team == 0 else BLUE
+		var color: Color = TEAM_COLORS[p.team]
 		var icon := position + Vector2(0, -12)
 		var icon_rect := Rect2(icon - Vector2(13, 13), Vector2(26, 26))
 		draw_texture_rect(control_icons[p.human % 2 if s.dual_control else 2], icon_rect, false, color)
@@ -108,7 +110,7 @@ func _draw() -> void:
 			draw_rect(Rect2(position + Vector2(-24, -32), Vector2(48 * p.stamina, 4)), color)
 		if game.party.managed and (not s.dual_control or p.human % 2 == 0):
 			var profile: Dictionary = p.get("profile", {})
-			var center := Vector2(52 if p.team == 0 else 1360, 650 + (p.human / 4 if s.dual_control else p.human / 2) * 57)
+			var center := Vector2([52, 1360, 706][p.team], (650 if p.team < 2 else 40) + (p.human / 4 if s.dual_control else p.human / s.teams) * 57)
 			panel(Rect2(center - Vector2(28, 25), Vector2(220, 51)), INK, 12)
 			draw_circle(center, 18, Color.from_string(str(profile.get("skin_color", "#fff2d2")), CREAM))
 			var avatar: String = str(profile.get("avatar", ""))
@@ -131,13 +133,14 @@ func _draw() -> void:
 		loud("GET READY", 380, 22, GOLD)
 		loud(str(maxi(1, int(ceil(s.phase_time)))), 470, 84, CREAM)
 	elif s.phase == "goal":
-		var color: Color = ORANGE if s.events_team == 0 else BLUE
+		var color: Color = TEAM_COLORS[s.events_team]
 		loud("GOOOAL!", 430, 96, color)
-		loud("TANGERINES" if s.events_team == 0 else "BLUEBERRIES", 474, 24, CREAM)
+		loud(TEAM_NAMES[s.events_team], 474, 24, CREAM)
 	elif s.phase == "result":
 		panel(Rect2(460, 274, 680, 328), INK, 24)
 		centered("FULL TIME", 330, 20, GOLD)
-		centered("TANGERINES WIN!" if s.score[0] > s.score[1] else "BLUEBERRIES WIN!", 401, 55, ORANGE if s.score[0] > s.score[1] else BLUE)
+		var winner: int = s.score.find(s.score.max())
+		centered(TEAM_NAMES[winner] + " WIN!", 401, 55, TEAM_COLORS[winner])
 		centered("%d  :  %d" % [s.score[0], s.score[1]], 474, 52)
 		centered("START / ENTER  ·  REMATCH", 560, 21)
 	if game.notice_time > 0:
@@ -163,7 +166,7 @@ func _draw() -> void:
 func draw_hints(alpha: float) -> void:
 	fade = alpha
 	panel(Rect2(440, 846, 720, 36), Color(.06, .12, .17, .55), 18)
-	if game.team_size > 1:
+	if game.team_size > 1 or game.three_way:
 		text("L STICK  MOVE / AIM", Vector2(467, 867), 16, CREAM, true)
 		text("LB / RB  SHOOT / TACKLE", Vector2(808, 867), 16, CREAM, true)
 	elif game.dual_stick:
@@ -186,8 +189,8 @@ func draw_menu() -> void:
 	text("BALL", Vector2(55, 221), 112, CREAM, true)
 	text("KICKERS", Vector2(55, 326), 79, ORANGE, true)
 	text("More friends. Bigger trouble.", Vector2(66, 375), 25, CREAM)
-	var matchup: String = "MATCHUP     %s" % ("%dv%d" % [game.team_size, game.team_size] if game.humans > 1 else "SOLO vs AI") if game.dual_stick else "PLAYERS     %d" % game.humans
-	var options: Array = ["KICK OFF", matchup, "CONTROLS    %s" % ("SINGLE" if game.team_size > 1 else ("DUAL" if game.dual_stick else "CLASSIC")), "MATCH       %d MIN" % (game.match_seconds / 60), "SOUND       %s" % ("ON" if game.sound_enabled else "OFF"), "CHAOS       %s" % ["OFF", "SOME", "LOTS"][game.chaos_level]]
+	var matchup: String = "MATCHUP     %s" % ("3-WAY" if game.three_way else ("%dv%d" % [game.team_size, game.team_size] if game.humans > 1 else "SOLO vs AI")) if game.dual_stick or game.three_way else "PLAYERS     %d" % game.humans
+	var options: Array = ["KICK OFF", matchup, "CONTROLS    %s" % ("SINGLE" if game.team_size > 1 or game.three_way else ("DUAL" if game.dual_stick else "CLASSIC")), "MATCH       %d MIN" % (game.match_seconds / 60), "SOUND       %s" % ("ON" if game.sound_enabled else "OFF"), "CHAOS       %s" % ["OFF", "SOME", "LOTS"][game.chaos_level]]
 	for i in options.size():
 		var rect := Rect2(61, 412 + i * 57, 475, 50)
 		hit_rects.append(rect)
@@ -197,7 +200,11 @@ func draw_menu() -> void:
 		text(parts[0].strip_edges(), rect.position + Vector2(20, 33), 23 if i == 0 else 19, INK if active and i == 0 else CREAM, true)
 		if parts.size() > 1: text(parts[-1].strip_edges(), rect.position + Vector2(190, 33), 19, GOLD if active else CREAM, true)
 		if active and i > 0: text("‹   ›", rect.position + Vector2(388, 33), 25, GOLD, true)
-	if game.team_size > 1:
+	if game.three_way:
+		text("Three players, three goals. Defend yours, score in both others.", Vector2(65, 775), 18, Color("a8c1c7"))
+		text("Left stick move / aim     LB or RB shoot / tackle", Vector2(65, 811), 17, CREAM)
+		text("Keyboard: WASD + Q", Vector2(65, 838), 16, CREAM)
+	elif game.team_size > 1:
 		text("One controller. One unit. Bots fill empty places.", Vector2(65, 775), 18, Color("a8c1c7"))
 		text("Left stick move / aim     LB or RB shoot / tackle", Vector2(65, 811), 17, CREAM)
 		text("Keyboard: WASD + Q", Vector2(65, 838), 16, CREAM)
@@ -214,7 +221,7 @@ func draw_menu() -> void:
 func draw_replay(s) -> void:
 	var r = game.replay
 	if not r.active: return
-	var color: Color = ORANGE if r.team == 0 else BLUE
+	var color: Color = TEAM_COLORS[r.team]
 	if game.replay_showing():
 		var scale := Vector2(size.x / 1600.0, size.y / 900.0)
 		# Telestrator: the ball's recent path, chalked over the pitch.

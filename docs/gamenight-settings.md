@@ -5,7 +5,7 @@ These options are declared over GameNight's typed settings protocol. The phone a
 | Key | Control and timing | Values | Default |
 | --- | --- | --- | --- |
 | `seconds` | Match length, s (next match) | 60 to 300 | `120` |
-| `matchup` | Matchup (next match) | Auto, 1v1, 2v2, 3v3 | `"Auto"` |
+| `matchup` | Matchup (next match) | Auto, 1v1, 2v2, 3v3, 3-way | `"Auto"` |
 | `run_speed` | Running speed % (live) | 50 to 150 | `100` |
 | `shot_power` | Shot speed % (next shot) | 50 to 150 | `100` |
 | `ball_friction` | Ball ground friction % (live) | 25 to 200 | `100` |

@@ -37,6 +37,7 @@ var slide := 1.0
 var slogan := ""
 var dog_ball := false
 var last_ball := Vector3.ZERO
+var three_way := false
 
 func setup(seed_value: int) -> void:
 	rng.seed = seed_value * 7919 + 13
@@ -63,6 +64,7 @@ func title() -> String:
 	return TITLES.get(kind, "")
 
 func step(m, dt: float) -> void:
+	three_way = m.three_way
 	if kind == "":
 		if forced != "":
 			start(m, forced)
@@ -95,6 +97,8 @@ func pick() -> String:
 	# The big game-changers (a second ball, a soaked pitch) are the rarest.
 	var options: Array = []
 	for k in KINDS:
+		# The beach ball scores on the two-team goals only.
+		if k == "second_ball" and three_way: continue
 		if k not in recent:
 			for n in WEIGHTS.get(k, 1): options.append(k)
 	return options[rng.randi_range(0, options.size() - 1)]

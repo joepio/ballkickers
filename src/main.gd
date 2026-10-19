@@ -37,6 +37,8 @@ var menu_selection := 0
 var paused := false
 var humans := 2
 var team_size := 1
+## Three players, three teams, three goals on a six-sided arena.
+var three_way := false
 var team_override := false
 var managed_matchup := "Auto"
 var coop := false
@@ -84,6 +86,11 @@ func _ready() -> void:
 			team_size = clampi(int(arg.trim_prefix("--teams=")), 1, 3)
 			humans = team_size * 2
 			team_override = true
+		elif arg == "--three":
+			three_way = true
+			team_size = 1
+			humans = 3
+			team_override = true
 		elif arg == "--stats": show_stats = true
 		elif arg.begins_with("--chaos="): chaos_force = arg.trim_prefix("--chaos=")
 		elif arg.begins_with("--chaos-level="): chaos_level = clampi(int(arg.trim_prefix("--chaos-level=")), 0, 2)
@@ -95,12 +102,13 @@ func _ready() -> void:
 		var athlete = stadium.make_player(i)
 		athlete.scale = Vector3.ONE * 1.16
 		athletes.append(athlete)
-	for team in 2:
+	for team in 3:
 		var keeper = stadium.make_player(6 + team, true)
+		stadium.paint_kit(keeper, Stadium.KEEPER_COLORS[team])
 		keeper.scale = Vector3.ONE * 1.23
 		keeper.get_node("Marker").visible = false
 		keeper_nodes.append(keeper)
-	for team in 2: coaches.append(stadium.make_coach(team))
+	for team in 3: coaches.append(stadium.make_coach(team))
 	for index in 3: cameramen.append(stadium.make_cameraman(index))
 	ball_node = stadium.make_ball()
 	chaos_view.stadium = stadium
@@ -132,11 +140,11 @@ func _ready() -> void:
 	add_child(crowd_audio)
 	sound_players = audio.players
 	sim.chaos.level = chaos_level
-	sim.setup(0, false, 725, 120, dual_stick, team_size)
+	sim.setup(0, false, 725, 120, dual_stick, team_size, three_way)
 	sync_arena()
 	if demo:
 		menu = false
-		sim.setup(0, false, 725, 120, dual_stick, team_size)
+		sim.setup(0, false, 725, 120, dual_stick, team_size, three_way)
 		sim.chaos.forced = chaos_force
 		sim.power = [100.0, 100.0]
 		aim_camera(Vector3(0, 0, CAMERA_AIM_Z), 1.0)
@@ -145,17 +153,25 @@ func _ready() -> void:
 		paused = true
 
 func sync_arena() -> void:
-	stadium.resize_pitch(team_size)
+	stadium.resize_pitch(team_size, three_way)
 	for i in athletes.size():
 		athletes[i].visible = i < sim.players.size()
-		if i < sim.players.size(): athletes[i].position = Match.vec3(sim.players[i].pos)
+		if i < sim.players.size():
+			athletes[i].position = Match.vec3(sim.players[i].pos)
+			stadium.paint_kit(athletes[i], Stadium.TEAM_COLORS[sim.players[i].team])
+	for team in keeper_nodes.size():
+		keeper_nodes[team].visible = team < sim.teams
+		if team < sim.teams: keeper_nodes[team].position = Match.vec3(sim.keepers[team].pos)
+	for team in coaches.size(): coaches[team].visible = team < sim.teams
 
 func configure_managed_matchup() -> void:
 	if managed_matchup != "Auto":
-		team_size = int(managed_matchup.left(1))
+		three_way = managed_matchup == "3-way"
+		team_size = 1 if three_way else int(managed_matchup.left(1))
 	elif not team_override:
 		var count: int = party.human_seats().size()
-		team_size = 1 if count <= 2 else (2 if count <= 4 else 3)
+		three_way = count == 3
+		team_size = 1 if count <= 3 else (2 if count <= 4 else 3)
 
 func reset_replay() -> void:
 	if replay.active and not replay.saved.is_empty(): replay.restore(sim)
@@ -176,8 +192,9 @@ func start_match() -> void:
 		humans = mini(humans, devices.size())
 	if dual_stick: humans = mini(humans, team_size * 2)
 	if coop: humans = mini(humans, team_size * 2)
+	if three_way: humans = mini(humans, 3)
 	if not party.managed: sim.chaos.level = chaos_level
-	sim.setup(0 if demo else humans, coop, int(Time.get_ticks_usec()) % 1000000, match_seconds, dual_stick, team_size)
+	sim.setup(0 if demo else humans, coop, int(Time.get_ticks_usec()) % 1000000, match_seconds, dual_stick, team_size, three_way)
 	sync_arena()
 	apply_profiles()
 	menu = false
@@ -205,7 +222,7 @@ func _physics_process(dt: float) -> void:
 	var controls: Dictionary = {}
 	if not menu and not demo:
 		for h in humans:
-			if team_size > 1:
+			if team_size > 1 or three_way:
 				controls[h] = read_single_control(h)
 			elif dual_stick:
 				for half in 2: controls[h * 2 + half] = read_dual_control(h, half)
@@ -222,7 +239,7 @@ func _physics_process(dt: float) -> void:
 		for event in sim.events: handle_event(event)
 	if sim.phase == "result":
 		result_time += dt
-		if menu: sim.setup(0, false, randi(), 120, dual_stick, team_size)
+		if menu: sim.setup(0, false, randi(), 120, dual_stick, team_size, three_way)
 		elif party.managed and result_time > 9: start_match()
 	# Roll the replay once the celebration has had its moment.
 	if replay_pending and sim.phase == "goal" and sim.phase_time < 1.0:
@@ -339,7 +356,7 @@ func _process(dt: float) -> void:
 			update_effects(dt)
 		stadium.update_board(sim, run_time)
 		stadium.crowd.update(dt, menu or (sim.phase == "play" and not sim.chaos.active() and hype_free()))
-	var factor := Match.pitch_scale(team_size)
+	var factor: float = sim.arena_factor
 	# A fixed broadcast camera high on the near stand that keeps the whole pitch
 	# in shot; only the menu frames the stadium off to one side.
 	var focus := Vector3(-9.0 * factor if menu else 0.0, 0, CAMERA_AIM_Z * factor)
@@ -370,13 +387,15 @@ func hype_free() -> bool:
 	return absf(sim.ball.x) < sim.half_x * .55
 
 func update_visuals(dt: float) -> void:
-	for team in keeper_nodes.size():
+	for team in sim.teams:
 		var node: Node3D = keeper_nodes[team]
 		var k: Dictionary = sim.keepers[team]
 		node.position = node.position.lerp(Vector3(k.pos.x, 0, k.pos.y), 1 - exp(-dt * 34))
 		var body: Node3D = node.get_node("Body")
-		var inward := 1.0 if team == 0 else -1.0
-		body.rotation.y = inward * PI / 2
+		# Face out of the goal; "inward" is which way a dive along the line rolls.
+		var g: Dictionary = sim.goals[team]
+		body.rotation.y = atan2(g.n.x, g.n.y)
+		var inward: float = -Vector2(cos(body.rotation.y), -sin(body.rotation.y)).dot(g.t)
 		# Lying after a dive, then scrambling up: legs pedal, arms push off the
 		# grass and the body wobbles upright as the recovery runs out.
 		if k.dive > 0: node.set_meta("dived", true)
@@ -548,11 +567,15 @@ func clear_view(index: int, at: Vector2, side: float) -> Vector3:
 	# the lens and them, staying on the pitch so the net never sits in front.
 	var best := Vector3.ZERO
 	var best_score := INF
+	# Prefer looking back at the scorer from the pitch side of the beaten goal.
+	var ahead: Vector2 = sim.goals[sim.conceded_team].n
 	for step in 12:
-		var dir := Vector2(-side, 0).rotated(step * TAU / 12.0)
+		var dir := ahead.rotated(step * TAU / 12.0)
 		var from := at + dir * 6.5
-		if absf(from.x) > sim.half_x - .6 or absf(from.y) > sim.half_z + .4: continue
-		var score := absf(dir.angle_to(Vector2(-side, 0))) * .15
+		if sim.three_way:
+			if sim.confine(from, .6).distance_to(from) > .01: continue
+		elif absf(from.x) > sim.half_x - .6 or absf(from.y) > sim.half_z + .4: continue
+		var score := absf(dir.angle_to(ahead)) * .15
 		var near := at + dir * .7
 		var bodies: Array = []
 		for i in sim.players.size(): if i != index: bodies.append(sim.players[i].pos)
@@ -563,14 +586,14 @@ func clear_view(index: int, at: Vector2, side: float) -> Vector3:
 		if score < best_score:
 			best_score = score
 			best = Vector3(from.x, 3.3, from.y)
-	if best_score == INF: best = Vector3(at.x - side * 6.5, 3.3, at.y)
+	if best_score == INF: best = Vector3(at.x + ahead.x * 6.5, 3.3, at.y + ahead.y * 6.5)
 	return best
 
 func update_cameramen(dt: float) -> void:
 	# The replay cameras are real people. One stands on a riser beside each goal
 	# (the goal-line and crowd shots come from them) and a steadicam operator
 	# walks behind the coaches on the near side, then runs in for the scorer and coach close-ups.
-	var f := Match.pitch_scale(team_size)
+	var f: float = sim.arena_factor
 	var shot: String = replay.shot() if replay_showing() else ""
 	var scoring_side := 1.0 if replay.team == 0 else -1.0
 	for index in cameramen.size():
@@ -597,8 +620,14 @@ func update_cameramen(dt: float) -> void:
 				look = Vector3(p.pos.x, 1.5, p.pos.y)
 				snap = true
 			elif shot in ["coach", "coach_sad"]:
-				var coach: Node3D = coaches[replay.team if shot == "coach" else 1 - replay.team]
+				var coach_team: int = replay.team if shot == "coach" else sim.conceded_team
+				var coach: Node3D = coaches[coach_team]
 				target = coach.position + Vector3(-.9, 0, -4.6)
+				if sim.three_way:
+					# Three-way coaches stand beside their own goal, facing the pitch.
+					var g: Dictionary = sim.goals[coach_team]
+					var spot: Vector2 = g.n * 6.2 - g.t * .9
+					target = coach.position + Vector3(spot.x, 0, spot.y)
 				look = coach.position + Vector3(0, 1.75 if shot == "coach" else 1.45, 0)
 				snap = true
 		man.set_meta("look", look)
@@ -625,8 +654,9 @@ func update_cameramen(dt: float) -> void:
 ## The camera operator a replay shot is filmed by, or null for the gantry.
 func replay_operator(shot: String) -> Node3D:
 	var scoring_side := 1.0 if replay.team == 0 else -1.0
+	var beaten_right: bool = sim.goals[sim.conceded_team].c.x > 0
 	match shot:
-		"goalcam": return cameramen[1 if scoring_side > 0 else 0]
+		"goalcam": return cameramen[1 if beaten_right else 0]
 		"fans": return cameramen[1 if scoring_side > 0 else 0]
 		"scorer", "coach", "coach_sad": return cameramen[2]
 	return null
@@ -637,18 +667,26 @@ func lens_point(man: Node3D) -> Vector3:
 	return lens.global_transform * Vector3(0, 0, 1.0)
 
 func update_coaches(dt: float) -> void:
-	for team in coaches.size():
+	for team in sim.teams:
 		var coach: Node3D = coaches[team]
-		var home := (-1.0 if team == 0 else 1.0) * 6.5 * Match.pitch_scale(team_size)
+		var home: float = [-6.5, 6.5, 0.0][team] * sim.arena_factor
 		var pace := home + sin(run_time * .45 + team * 2.0) * 2.2 + clampf(sim.ball.x * .12, -2, 2)
 		var target := Vector3(pace, 0, sim.half_z + .6)
+		var facing := PI
+		if sim.three_way:
+			# Beside their own goal, just behind the boards.
+			var g: Dictionary = sim.goals[team]
+			var spot: Vector2 = g.c - g.n * 1.9 + g.t * (6.8 + sin(run_time * .45 + team * 2.0) * 1.4)
+			target = Vector3(spot.x, 0, spot.y)
+			facing = atan2(g.n.x, g.n.y)
 		if coach.position.distance_to(target) > 12: coach.position = target
 		var step := target - coach.position
 		coach.position = coach.position.lerp(target, 1 - exp(-dt * 2))
 		var body: Node3D = coach.get_node("Body")
-		var t := run_time * 9 + team
-		var walking := absf(step.x) > .15
-		body.rotation.y = lerp_angle(body.rotation.y, (PI / 2 * signf(step.x) if walking else PI) * 1.0, 1 - exp(-dt * 6))
+		var t: float = run_time * 9 + team
+		# Hold still for the cameras while a replay runs.
+		var walking: bool = Vector2(step.x, step.z).length() > .15 and not replay.active
+		body.rotation.y = lerp_angle(body.rotation.y, atan2(step.x, step.z) if walking else facing, 1 - exp(-dt * 6))
 		body.position.y = 0.0
 		body.rotation.x = 0.0
 		var swing := sin(t) * (.5 if walking else 0.0)
@@ -657,7 +695,7 @@ func update_coaches(dt: float) -> void:
 		var arm_l := Vector3(-swing, 0, .1)
 		var arm_r := Vector3(swing, 0, -.1)
 		if sim.phase in ["goal", "result"]:
-			body.rotation.y = lerp_angle(body.rotation.y, PI, 1 - exp(-dt * 8))
+			body.rotation.y = lerp_angle(body.rotation.y, facing, 1 - exp(-dt * 8))
 			if team == sim.events_team:
 				body.position.y = absf(sin(run_time * 9 + team)) * .7
 				arm_l = Vector3(0, 0, -2.6 + sin(run_time * 14) * .3)
@@ -667,7 +705,7 @@ func update_coaches(dt: float) -> void:
 				body.rotation.x = .35
 				arm_l = Vector3(-2.3, 0, -.9)
 				arm_r = Vector3(-2.3, 0, .9)
-		elif absf(sim.ball.x - coach.position.x) < 8 and sim.phase == "play":
+		elif Vector2(sim.ball.x - coach.position.x, sim.ball.z - coach.position.z).length() < (8 if sim.three_way else 99) and absf(sim.ball.x - coach.position.x) < 8 and sim.phase == "play":
 			arm_r = Vector3(-1.4 + sin(run_time * 6) * .25, 0, -.3)
 		body.get_node("ArmL").rotation = arm_l
 		body.get_node("ArmR").rotation = arm_r
@@ -682,7 +720,8 @@ func replay_event(event: Dictionary) -> void:
 func handle_event(event: Dictionary) -> void:
 	var type: String = event.type
 	if not menu: crowd_audio.react(event)
-	var color: Color = Stadium.ORANGE if event.get("team", 0) == 0 else Stadium.BLUE
+	var team: int = event.get("team", 0)
+	var color: Color = Stadium.TEAM_COLORS[team] if team >= 0 and team < 3 else Stadium.CREAM
 	match type:
 		"control_changed": apply_profiles()
 		"save":
@@ -852,23 +891,25 @@ func _input(event: InputEvent) -> void:
 		reset_replay()
 		menu = true
 		paused = false
-		sim.setup(0, false, randi(), 120, dual_stick, team_size)
+		sim.setup(0, false, randi(), 120, dual_stick, team_size, three_way)
 
 func adjust_menu(delta: int) -> void:
 	match menu_selection:
 		1:
-			var choice := 0 if humans == 1 else team_size
-			choice = posmod(choice + delta, 4)
-			team_size = maxi(1, choice)
-			humans = 1 if choice == 0 else team_size * 2
-			sim.setup(0, false, 725, 120, dual_stick, team_size)
+			# Solo, 1v1, 2v2, 3v3, then three-way.
+			var choice := 0 if humans == 1 else (4 if three_way else team_size)
+			choice = posmod(choice + delta, 5)
+			three_way = choice == 4
+			team_size = 1 if three_way else maxi(1, choice)
+			humans = 1 if choice == 0 else (3 if three_way else team_size * 2)
+			sim.setup(0, false, 725, 120, dual_stick, team_size, three_way)
 			sync_arena()
 		2:
-			if team_size > 1: return
+			if team_size > 1 or three_way: return
 			dual_stick = not dual_stick
 			coop = false
 			if dual_stick: humans = mini(humans, team_size * 2)
-			sim.setup(0, false, 725, 120, dual_stick, team_size)
+			sim.setup(0, false, 725, 120, dual_stick, team_size, three_way)
 		3: match_seconds = clampi(match_seconds + delta * 60, 60, 300)
 		4:
 			sound_enabled = not sound_enabled
@@ -885,10 +926,10 @@ func on_party_command(message: Dictionary) -> void:
 			menu = false
 			paused = true
 			configure_managed_matchup()
-			humans = mini(party.human_seats().size(), team_size * 2 if dual_stick else team_size * 4)
+			humans = mini(party.human_seats().size(), 3 if three_way else (team_size * 2 if dual_stick else team_size * 4))
 			coop = false
 			managed_buttons.clear()
-			sim.setup(humans, false, 725, match_seconds, dual_stick, team_size)
+			sim.setup(humans, false, 725, match_seconds, dual_stick, team_size, three_way)
 			sync_arena()
 			apply_profiles()
 			GameNight.notify_participation(party.session, false)

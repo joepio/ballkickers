@@ -123,7 +123,7 @@ func describe(sim) -> void:
 		var shot_from := INF
 		for f in clip:
 			for e in f.events:
-				if e.type in ["shot", "super"] and e.get("team", -1) == team: shot_from = absf(e.pos.x - (sim.half_x if team == 0 else -sim.half_x))
+				if e.type in ["shot", "super"] and e.get("team", -1) == team: shot_from = Vector2(e.pos.x, e.pos.z).distance_to(sim.goals[sim.conceded_team].c)
 		if "super" in types: kind = "super"
 		elif "keeper_beaten" in types: kind = "beaten"
 		elif "save" in types: kind = "rebound"
@@ -137,10 +137,11 @@ func plan_reactions() -> void:
 	reactions.clear()
 	if scorer_index >= 0: reactions.append({"kind": "scorer", "time": 1.9})
 	if own_goal: reactions.append({"kind": "coach_sad", "time": 1.6})
-	var extra: Array = ["coach", "fans"]
+	# The stands only hold orange and blue ends, so lime goals skip the fans.
+	var extra: Array = ["coach", "fans"] if team < 2 else ["coach"]
 	extra.shuffle()
 	if randf() < .75 or reactions.is_empty(): reactions.append({"kind": extra[0], "time": 1.6})
-	if randf() < .3: reactions.append({"kind": extra[1], "time": 1.4})
+	if extra.size() > 1 and randf() < .3: reactions.append({"kind": extra[1], "time": 1.4})
 	if not own_goal and randf() < .35: reactions.append({"kind": "coach_sad", "time": 1.3})
 
 ## The camera shot the broadcast is on right now.

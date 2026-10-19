@@ -19,6 +19,13 @@ keeper on each team. Three humans in 2v2 or five in 3v3 get one bot in the empty
 place. Controller seats alternate orange/blue teams and retain ownership.
 1v1 and 2v2 share the original pitch size. 3v3 has three times the pitch area,
 with unchanged unit and goal sizes. `-- --teams=2` or `-- --teams=3` selects them on launch.
+
+**3-way** is for exactly three people: three teams of one (Tangerines, Blueberries
+and Limes), each with its own keeper and goal, on a triangular arena with the
+corners cut off. Defend your goal and score in either of the other two. The last
+other team to touch the ball gets the goal; an own goal goes to whoever touched
+it before. The team that concedes kicks off. Controls are the 2v2 ones (left
+stick, either shoulder). `-- --three` starts it on launch.
 The menu defaults to **1v1** (two controllers). At every kickoff and rematch,
 each team's L unit starts screen-left of its R unit; stick ownership stays fixed
 while you play, even if the units cross each other.
@@ -155,7 +162,7 @@ random stream, so the match's AI and keeper rolls are unchanged.
 local games. Restart GameNight to refresh the local shelf.
 Both local and published registrations use one **Ballkickers** entry, which
 automatically selects 1v1 for one/two humans,
-2v2 for three/four, or 3v3 for five/six. The party can override this using the
+3-way for three, 2v2 for four, or 3v3 for five/six. The party can override this using the
 Matchup setting; changes apply to the next match.
 The registration script removes legacy mode-specific entries and uses the
 latest build without forcing a team size. The game adapter supports six human seats; the current GameNight

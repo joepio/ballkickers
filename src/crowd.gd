@@ -297,6 +297,10 @@ func build_props(random: RandomNumberGenerator) -> void:
 		props.append({"node": node, "seat": seat, "kind": "flag", "phase": random.randf() * TAU, "team": 0 if side < 0 else 1})
 
 func event(type: String, team: int = -1) -> void:
+	# The stands only have orange and blue ends; a lime goal lifts everyone.
+	if type in ["goal", "finish"] and (team < 0 or team > 1):
+		hype = 1.0
+		return
 	match type:
 		"goal":
 			cheer[team] = 1.0
