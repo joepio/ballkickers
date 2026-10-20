@@ -1,4 +1,5 @@
 extends Node3D
+const GAME_LOGO = preload("res://assets/branding/logo.png")
 const ORANGE = Color("ff7547")
 const BLUE = Color("58caff")
 const INK = Color("182d41")
@@ -19,7 +20,7 @@ var board_scores: Array = []
 var board_bars: Array = []
 var board_clock: Label3D
 var board_panels: Array = []
-var board_title: Label3D
+var board_title: Sprite3D
 var board_three := false
 var blimp: Node3D
 var blimp_angle := 0.0
@@ -346,7 +347,7 @@ func build_board() -> void:
 		var bar := box(panel, Vector3(0, 2.85, .05), Vector3(4.2, .26, .06), color, .4)
 		board_bars.append(bar)
 		board_panels.append(panel)
-	board_title = label3(board, "BALLKICKERS", Vector3(0, 5.3, .04), 34, Color("ffc94d"))
+	board_title = logo3(board, Vector3(0, 5.3, .04), 3.4)
 	board_clock = label3(board, "2:00", Vector3(0, 4.15, .04), 110, CREAM)
 	layout_board(false)
 
@@ -480,7 +481,7 @@ func build_scenery() -> void:
 	box(blimp, Vector3(0, -3.3, 0), Vector3(3.2, 1, 1.5), INK)
 	for fin in 2: box(blimp, Vector3(-6.6, 0, 0), Vector3(2.2, .2, 5.4) if fin == 0 else Vector3(2.2, 5.4, .2), ORANGE)
 	for side in [-1, 1]:
-		var name_tag := label3(blimp, "BALLKICKERS", Vector3(0, .4, side * 3.25), 130, BLUE)
+		var name_tag := logo3(blimp, Vector3(0, .4, side * 3.25), 9.0)
 		name_tag.rotation.y = 0.0 if side == 1 else PI
 		name_tag.double_sided = false
 
@@ -828,3 +829,12 @@ void fragment() {
 	mat.shader = shader
 	ball_mesh.material_override = mat
 	return root
+
+func logo3(parent: Node3D, at: Vector3, width: float) -> Sprite3D:
+	var sprite := Sprite3D.new()
+	sprite.texture = GAME_LOGO
+	sprite.pixel_size = width / GAME_LOGO.get_width()
+	sprite.position = at
+	sprite.shaded = false
+	parent.add_child(sprite)
+	return sprite

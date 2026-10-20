@@ -1,4 +1,5 @@
 extends Control
+const GAME_LOGO = preload("res://assets/branding/logo.png")
 const TEAM_COLORS = preload("res://src/stadium.gd").TEAM_COLORS
 const TEAM_NAMES = preload("res://src/stadium.gd").TEAM_NAMES
 const INK = Color("172b3c")
@@ -186,8 +187,7 @@ func draw_menu() -> void:
 	draw_rect(Rect2(0, 0, 615, 900), Color(.06, .12, .18, .96))
 	draw_colored_polygon(PackedVector2Array([Vector2(615, 0), Vector2(715, 0), Vector2(615, 900)]), Color(.06, .12, .18, .96))
 	text("PARTY FOOTBALL", Vector2(64, 82), 19, GOLD, true)
-	text("BALL", Vector2(55, 221), 112, CREAM, true)
-	text("KICKERS", Vector2(55, 326), 79, ORANGE, true)
+	draw_game_logo(Rect2(55, 140, 505, 190))
 	text("More friends. Bigger trouble.", Vector2(66, 375), 25, CREAM)
 	var matchup: String = "MATCHUP     %s" % ("3-WAY" if game.three_way else ("%dv%d" % [game.team_size, game.team_size] if game.humans > 1 else "SOLO vs AI")) if game.dual_stick or game.three_way else "PLAYERS     %d" % game.humans
 	var options: Array = ["KICK OFF", matchup, "CONTROLS    %s" % ("SINGLE" if game.team_size > 1 or game.three_way else ("DUAL" if game.dual_stick else "CLASSIC")), "MATCH       %d MIN" % (game.match_seconds / 60), "SOUND       %s" % ("ON" if game.sound_enabled else "OFF"), "CHAOS       %s" % ["OFF", "SOME", "LOTS"][game.chaos_level]]
@@ -271,6 +271,10 @@ func draw_replay(s) -> void:
 			var width := 2000.0 if stripe[0] == INK else 140.0
 			draw_colored_polygon(PackedVector2Array([Vector2(o, 0), Vector2(o + width, 0), Vector2(o + width - 300, 900), Vector2(o - 300, 900)]), c)
 		var cx := offset + 760
-		text("BALL", Vector2(cx - 210, 470), 110, CREAM, true)
-		text("KICKERS", Vector2(cx + 30, 470), 110, color, true)
+		draw_game_logo(Rect2(cx - 325, 290, 650, 220))
 		text("ACTION REPLAY", Vector2(cx - 120, 540), 34, GOLD, true)
+
+func draw_game_logo(bounds: Rect2) -> void:
+	var dimensions: Vector2 = GAME_LOGO.get_size()
+	var fitted := dimensions * minf(bounds.size.x / dimensions.x, bounds.size.y / dimensions.y)
+	draw_texture_rect(GAME_LOGO, Rect2(bounds.position + (bounds.size - fitted) * 0.5, fitted), false)
