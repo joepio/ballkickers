@@ -10,6 +10,8 @@ permissions:
 jobs:
   gamenight-sdk:
     uses: ontola/gamenight/.github/workflows/godot-sdk-check.yml@main
+  crowd-sound:
+    uses: joepio/godot-crowd-sound/.github/workflows/sync-check.yml@main
   windows:
     runs-on: windows-latest
     timeout-minutes: 20
