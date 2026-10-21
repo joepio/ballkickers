@@ -25,6 +25,10 @@ func _ready() -> void:
 	GameNight.roster_changed.connect(func(_seats: Array, players: Array, _presence: Array) -> void:
 		update_profiles(players)
 		command.emit({"type": "party_updated"}))
+	# A profile picked up in the lobby: new name, colours and face, same match.
+	GameNight.players_updated.connect(func(players: Array) -> void:
+		update_profiles(players)
+		command.emit({"type": "party_updated"}))
 	GameNight.controllers_changed.connect(func(controllers: Array) -> void:
 		frames.clear()
 		for record in controllers: frames[str(record.get("controller", ""))] = record
