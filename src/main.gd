@@ -30,10 +30,13 @@ var keeper_nodes: Array = []
 var ball_node: Node3D
 var ball_shadow: MeshInstance3D
 var effects: Array = []
-var trail: Array = []
-var trail_index := 0
 var menu := true
 var menu_selection := 0
+## Time-out menu: Resume, New match, then the match settings. The matchup is
+## picked here and takes effect with New match.
+var pause_selection := 0
+var pause_matchup := "Auto"
+const MATCHUPS = ["Auto", "1v1", "2v2", "3v3", "3-way"]
 var paused := false
 var humans := 2
 var team_size := 1
@@ -54,8 +57,11 @@ var notice_time := 0.0
 var shake := 0.0
 var show_stats := false
 var run_time := 0.0
-var trail_clock := 0.0
 var super_time := 0.0
+# Phase and replay state from the last frame: a kickoff or a replay cut puts
+# everyone in place at once instead of sliding them back.
+var seen_phase := ""
+var seen_replay := false
 var result_time := 0.0
 var hit_stop := 0.0
 var demo := false
@@ -116,10 +122,6 @@ func _ready() -> void:
 	add_child(chaos_view)
 	ball_shadow = stadium.sphere(stadium, Vector3.ZERO, .46, Color("285e50"))
 	ball_shadow.scale.y = .015
-	for i in 20:
-		var mote = stadium.sphere(stadium, Vector3.ZERO, .19, Stadium.CREAM)
-		mote.visible = false
-		trail.append({"node": mote, "life": 0.0})
 	add_child(camera)
 	add_child(cine)
 	cine.fov = 34
@@ -188,7 +190,7 @@ func start_match() -> void:
 		devices.clear()
 		for id in Input.get_connected_joypads(): devices.append(id)
 		devices.append(-1)
-		if not dual_stick: devices.append(-2)
+		if not dual_stick and not three_way: devices.append(-2)
 		humans = mini(humans, devices.size())
 	if dual_stick: humans = mini(humans, team_size * 2)
 	if coop: humans = mini(humans, team_size * 2)
@@ -222,9 +224,9 @@ func _physics_process(dt: float) -> void:
 	var controls: Dictionary = {}
 	if not menu and not demo:
 		for h in humans:
-			if team_size > 1 or three_way:
+			if team_size > 1 and not three_way:
 				controls[h] = read_single_control(h)
-			elif dual_stick:
+			elif dual_stick or three_way:
 				for half in 2: controls[h * 2 + half] = read_dual_control(h, half)
 			else:
 				controls[h] = read_control(h)
@@ -387,45 +389,30 @@ func hype_free() -> bool:
 	return absf(sim.ball.x) < sim.half_x * .55
 
 func update_visuals(dt: float) -> void:
+	var snap: bool = (sim.phase == "kickoff" and seen_phase != "kickoff") or replay.active != seen_replay
+	seen_phase = sim.phase
+	seen_replay = replay.active
+	var follow: float = 1.0 if snap else 1 - exp(-dt * 34)
 	for team in sim.teams:
 		var node: Node3D = keeper_nodes[team]
 		var k: Dictionary = sim.keepers[team]
-		node.position = node.position.lerp(Vector3(k.pos.x, 0, k.pos.y), 1 - exp(-dt * 34))
+		node.position = node.position.lerp(Vector3(k.pos.x, 0, k.pos.y), follow)
 		var body: Node3D = node.get_node("Body")
 		# Face out of the goal; "inward" is which way a dive along the line rolls.
 		var g: Dictionary = sim.goals[team]
 		body.rotation.y = atan2(g.n.x, g.n.y)
 		var inward: float = -Vector2(cos(body.rotation.y), -sin(body.rotation.y)).dot(g.t)
-		# Lying after a dive, then scrambling up: legs pedal, arms push off the
-		# grass and the body wobbles upright as the recovery runs out.
-		if k.dive > 0: node.set_meta("dived", true)
-		elif k.recovery <= 0: node.set_meta("dived", false)
-		var lie: float = 1.0 if k.dive > 0 else (clampf((k.recovery - .1) / .55, 0, 1) if node.get_meta("dived", false) else 0.0)
-		var scramble: bool = k.dive <= 0 and lie > 0
-		var down: bool = lie > .5
-		var wobble: float = sin(sim.elapsed * 13 + team) * .12 if scramble else 0.0
-		body.rotation.z = lerp_angle(body.rotation.z, k.dive_dir * inward * 1.2 * lie + wobble, 1 - exp(-dt * 18))
-		body.position.y = lerpf(body.position.y, .45 * lie, 1 - exp(-dt * 18))
-		var holding: bool = sim.keeper_owner == team
-		var push: float = sin(sim.elapsed * 11) * .4 if scramble else 0.0
-		body.get_node("ArmL").rotation.x = -1.3 + push if holding or down else -.5
-		body.get_node("ArmR").rotation.x = -1.3 - push if holding or down else -.5
-		body.get_node("ArmL").rotation.z = -.55 if down else .35
-		body.get_node("ArmR").rotation.z = .55 if down else -.35
-		var pedal: float = sin(sim.elapsed * 15) * .7 if scramble else 0.0
-		body.get_node("LegL").rotation.x = sin(sim.elapsed * 18) * minf(.35, absf(k.vel) * .04) - k.kick * 4 + pedal
-		body.get_node("LegR").rotation.x = -body.get_node("LegL").rotation.x
-		express(body, "focus" if k.dive > 0 else ("grin" if holding else ""), sim.elapsed + team * 2.1, k.kick > 0)
+		pose_keeper(node, body, k, team, inward, snap, dt)
 		body.get_node("Stars").visible = false
 	for i in athletes.size():
 		var node: Node3D = athletes[i]
 		node.visible = i < sim.players.size()
 		if not node.visible: continue
 		var p: Dictionary = sim.players[i]
-		node.position = node.position.lerp(Vector3(p.pos.x, 0, p.pos.y), 1 - exp(-dt * 30))
+		node.position = node.position.lerp(Vector3(p.pos.x, 0, p.pos.y), 1.0 if snap else 1 - exp(-dt * 30))
 		var body: Node3D = node.get_node("Body")
 		var speed: float = p.vel.length()
-		body.rotation.y = lerp_angle(body.rotation.y, atan2(p.face.x, p.face.y), 1 - exp(-dt * 22))
+		body.rotation.y = lerp_angle(body.rotation.y, atan2(p.face.x, p.face.y), 1.0 if snap else 1 - exp(-dt * 22))
 		var stride := sin(sim.elapsed * 19 + i) * minf(.8, speed * .06)
 		body.position.y = absf(sin(sim.elapsed * 19 + i)) * minf(.16, speed * .014)
 		body.rotation.x = lerpf(body.rotation.x, .85 if p.stun > 0 else (-.35 if p.dash > 0 else (-.2 if p.slide > 0 else .08 * speed / 12)), 1 - exp(-dt * 20))
@@ -461,25 +448,128 @@ func update_visuals(dt: float) -> void:
 	chaos_view.update(sim, dt)
 	update_coaches(dt)
 	update_cameramen(dt)
-	ball_node.position = ball_node.position.lerp(sim.ball, 1 - exp(-dt * 36))
+	ball_node.position = ball_node.position.lerp(sim.ball, 1.0 if snap else 1 - exp(-dt * 36))
 	ball_node.rotate_x(sim.ball_velocity.z * dt * 1.6)
 	ball_node.rotate_z(-sim.ball_velocity.x * dt * 1.6)
 	ball_shadow.position = Vector3(sim.ball.x, .12, sim.ball.z)
 	var shadow_scale := clampf(1 - sim.ball.y * .09, .3, 1)
 	ball_shadow.scale = Vector3(shadow_scale, .015, shadow_scale)
-	trail_clock -= dt
-	if sim.owner < 0 and sim.ball_velocity.length() > 12 and trail_clock <= 0 and sim.phase in ["play", "replay"]:
-		trail_clock = .024
-		var entry: Dictionary = trail[trail_index]
-		trail_index = (trail_index + 1) % trail.size()
-		entry.node.position = ball_node.position
-		entry.node.visible = true
-		entry.node.material_override = stadium.material(Color("ffcf57") if super_time > 0 else Stadium.CREAM, .3)
-		entry.life = .24 if super_time <= 0 else .42
-	for entry in trail:
-		entry.life -= dt
-		entry.node.visible = entry.life > 0
-		entry.node.scale = Vector3.ONE * maxf(.01, entry.life * 2.8)
+
+## Keeper body language: a bouncy ready stance with a side-step shuffle,
+## a stretched full-length dive, a staged get-up (lie, knee, stand), a slap,
+## and a reaction to every goal.
+func pose_keeper(node: Node3D, body: Node3D, k: Dictionary, team: int, inward: float, snap: bool, dt: float) -> void:
+	var t: float = sim.elapsed + team * 1.7
+	var side: float = k.dive_dir * inward
+	if k.dive > 0: node.set_meta("dived", true)
+	elif k.recovery <= 0: node.set_meta("dived", false)
+	var dived: bool = node.get_meta("dived", false)
+	var holding: bool = sim.keeper_owner == team
+	var shuffle: float = clampf(absf(k.vel) / 4.0, 0, 1) if k.dive <= 0 else 0.0
+	var sway: float = signf(k.vel) * -inward
+	# Pose targets: body tilt (x forward, z sideways), height, then limbs.
+	var tilt := Vector3(.16, 0, 0)
+	var lift := absf(sin(t * 9)) * .05
+	var arm_l := Vector3(-.45, 0, -.75)
+	var arm_r := Vector3(-.45, 0, .75)
+	var leg_l := Vector3(0, 0, -.18)
+	var leg_r := Vector3(0, 0, .18)
+	var mood := ""
+	if sim.phase in ["goal", "result"] and sim.conceded_team == team:
+		# Beaten: down on both knees, head hanging, fists thumping the grass.
+		var thump := absf(sin(t * 5)) * .5
+		tilt = Vector3(.55, 0, 0)
+		lift = -.3
+		arm_l = Vector3(-.3 - thump, 0, .1)
+		arm_r = Vector3(-.3 - absf(sin(t * 5 + 1.6)) * .5, 0, -.1)
+		leg_l = Vector3(1.45, 0, -.1)
+		leg_r = Vector3(1.45, 0, .1)
+		mood = "sad"
+	elif sim.phase in ["goal", "result"] and sim.events_team == team:
+		# Our team scored: star jumps in the box.
+		var jump := absf(sin(t * 7))
+		tilt = Vector3.ZERO
+		lift = jump * .6
+		arm_l = Vector3(0, 0, -2.7 + jump * .4)
+		arm_r = Vector3(0, 0, 2.7 - jump * .4)
+		leg_l = Vector3(0, 0, -.35 * jump)
+		leg_r = Vector3(0, 0, .35 * jump)
+		mood = "cheer"
+	elif k.dive > 0:
+		# Full stretch: flat out, arms reaching past the head, legs together.
+		tilt = Vector3(-.15, 0, side * 1.38)
+		lift = .62
+		arm_l = Vector3(0, 0, -2.85)
+		arm_r = Vector3(0, 0, 2.85)
+		leg_l = Vector3(.2, 0, -.05)
+		leg_r = Vector3(.05, 0, .05)
+		mood = "focus"
+	elif dived and k.recovery > .4:
+		# Down on the grass, arms still out where the ball went.
+		tilt = Vector3(0, 0, side * 1.5)
+		lift = .38
+		arm_l = Vector3(0, 0, -2.3 + sin(t * 3) * .1)
+		arm_r = Vector3(0, 0, 2.3)
+		leg_l = Vector3(.3, 0, -.2)
+		leg_r = Vector3(-.2, 0, .2)
+		mood = "hurt"
+	elif dived and k.recovery > .16:
+		# Up onto one knee, the low hand pushing off the ground.
+		tilt = Vector3(.35, 0, side * .3)
+		lift = -.18
+		arm_l = Vector3(-.2, 0, .4 if side < 0 else -1.0)
+		arm_r = Vector3(-.2, 0, -.4 if side > 0 else 1.0)
+		leg_l = Vector3(-1.35, 0, -.1)
+		leg_r = Vector3(1.3, 0, .1)
+		mood = "focus"
+	elif dived:
+		# Springing back up, shaking it off.
+		tilt = Vector3(.05, 0, sin(t * 22) * .08)
+		lift = .12
+		arm_l = Vector3(-.2, 0, -1.1)
+		arm_r = Vector3(-.2, 0, 1.1)
+	elif k.recovery > .4 and not holding:
+		# Knocked back by a shot through the gloves: arms windmilling.
+		tilt = Vector3(-.3, 0, sin(t * 14) * .1)
+		arm_l = Vector3(sin(t * 20) * 1.2 - 1.2, 0, -1.2)
+		arm_r = Vector3(-sin(t * 20) * 1.2 - 1.2, 0, 1.2)
+		leg_l = Vector3(-.4, 0, -.15)
+		mood = "hurt"
+	elif holding:
+		# Ball tucked into the chest, scanning for a runner.
+		tilt = Vector3(-.05, 0, 0)
+		lift = absf(sin(t * 6)) * .04
+		arm_l = Vector3(-1.35, 0, .55)
+		arm_r = Vector3(-1.35, 0, -.55)
+		mood = "grin"
+	elif k.slap > 0:
+		# A big round-arm swat at whoever wandered too close.
+		var swing := clampf((.8 - k.slap) / .22, 0, 1)
+		tilt = Vector3(.2, 0, -.15)
+		arm_r = Vector3(lerpf(-2.6, .9, swing), 0, .5)
+		arm_l = Vector3(.3, 0, -.6)
+		mood = "focus"
+	else:
+		# Ready stance: on the toes, knees bent, gloves wide; shuffling sideways
+		# with a lean and legs scissoring rather than running.
+		var step := sin(t * 17) * shuffle
+		tilt = Vector3(.2, 0, sway * shuffle * .14)
+		arm_l = Vector3(-.5 + sin(t * 4) * .06, 0, -.85 - shuffle * .2)
+		arm_r = Vector3(-.5 + sin(t * 4 + 1) * .06, 0, .85 + shuffle * .2)
+		leg_l = Vector3(0, 0, -.2 - absf(step) * .3)
+		leg_r = Vector3(0, 0, .2 + absf(step) * .3)
+		lift += absf(step) * .06
+	var rate: float = 1.0 if snap else 1 - exp(-dt * (26.0 if k.dive > 0 else 14.0))
+	body.rotation.x = lerp_angle(body.rotation.x, tilt.x, rate)
+	body.rotation.z = lerp_angle(body.rotation.z, tilt.z, rate)
+	body.position.y = lerpf(body.position.y, lift, rate)
+	for pair in [["ArmL", arm_l], ["ArmR", arm_r], ["LegL", leg_l], ["LegR", leg_r]]:
+		var limb: Node3D = body.get_node(pair[0])
+		var goal: Vector3 = pair[1]
+		limb.rotation = Vector3(lerp_angle(limb.rotation.x, goal.x, rate), 0, lerp_angle(limb.rotation.z, goal.z, rate))
+	# Kicks and throws snap through on top of the pose.
+	if k.kick > 0: body.get_node("LegL").rotation.x = -k.kick * 4
+	express(body, mood, t, k.kick > 0)
 
 func celebrate(body: Node3D, i: int, t: float) -> void:
 	# Each athlete has a signature celebration.
@@ -726,26 +816,22 @@ func handle_event(event: Dictionary) -> void:
 		"control_changed": apply_profiles()
 		"save":
 			stadium.crowd.event("save")
-			burst(event.pos, Stadium.CREAM, 10, 5)
 			shake = .3
 			play_sound("save")
 			notice = "SAVED!"
 			notice_time = .65
 		"keeper_beaten":
-			burst(event.pos, Stadium.CREAM, 7, 4)
 			shake = .35
 			play_sound("hit")
 			impact_pause(.035)
 		"keeper_dive": burst(event.pos, color, 5, 3)
 		"shot", "pass":
 			if type == "shot": stadium.crowd.event("shot")
-			burst(event.pos, Stadium.CREAM, 6, 4)
 			play_sound("kick" if type == "shot" else "pass")
 			shake = .25 if type == "shot" else .08
 			if type == "shot": impact_pause(.033)
 		"super":
 			stadium.crowd.event("super")
-			burst(event.pos, Color("ffce56"), 28, 12)
 			super_time = 1.4
 			shake = .85
 			notice = "POWER SHOT!"
@@ -761,7 +847,6 @@ func handle_event(event: Dictionary) -> void:
 			if sim.phase == "goal": replay_pending = true
 			stadium.crowd.event("goal", event.team)
 			burst(event.pos + Vector3.UP * 2, color, 65, 18)
-			burst(Vector3(0, 3, -4), Color("ffce56"), 45, 13)
 			shake = 1.0
 			play_sound("goal")
 		"dash": burst(event.pos, color, 5, 3)
@@ -781,9 +866,7 @@ func handle_event(event: Dictionary) -> void:
 			notice = event.text
 			notice_time = 1.6
 		"chaos_kick":
-			burst(event.pos, Stadium.CREAM, 4, 3)
 			play_sound("pass")
-		"chaos_land": burst(event.pos, Color("ffde59"), 8, 4)
 		"chaos_boom":
 			burst(event.pos, Color("ffb347"), 30, 13)
 			burst(event.pos, Color("ff4a3d"), 18, 9)
@@ -831,7 +914,6 @@ func update_effects(dt: float) -> void:
 func clear_effects() -> void:
 	for e in effects: e.node.queue_free()
 	effects.clear()
-	for entry in trail: entry.life = 0.0
 	chaos_view.reset()
 
 func play_sound(name: String) -> void:
@@ -883,25 +965,31 @@ func _input(event: InputEvent) -> void:
 				previous["menu_x"] = 1
 			elif absf(event.axis_value) < .3: previous["menu_x"] = 0
 		return
-	if sim.phase == "result" and (key == KEY_ENTER or button in [JOY_BUTTON_START, JOY_BUTTON_A]): start_match(); return
-	if key in [KEY_ESCAPE, KEY_ENTER] or button == JOY_BUTTON_START:
-		paused = not paused
-		for player in sound_players: player.stream_paused = paused
-	if paused and not party.managed and (key == KEY_TAB or button == JOY_BUTTON_Y):
-		reset_replay()
-		menu = true
-		paused = false
-		sim.setup(0, false, randi(), 120, dual_stick, team_size, three_way)
+	if sim.phase == "result" and not paused and (key == KEY_ENTER or button in [JOY_BUTTON_START, JOY_BUTTON_A]): start_match(); return
+	if paused:
+		var step := Vector2i.ZERO
+		if key in [KEY_UP, KEY_W] or button == JOY_BUTTON_DPAD_UP: step.y = -1
+		if key in [KEY_DOWN, KEY_S] or button == JOY_BUTTON_DPAD_DOWN: step.y = 1
+		if key in [KEY_LEFT, KEY_A] or button == JOY_BUTTON_DPAD_LEFT: step.x = -1
+		if key in [KEY_RIGHT, KEY_D] or button == JOY_BUTTON_DPAD_RIGHT: step.x = 1
+		if event is InputEventJoypadMotion and not party.managed and event.axis in [JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y]:
+			var gate := "pause_axis_%d" % event.axis
+			if absf(event.axis_value) > .65 and previous.get(gate, 0) == 0:
+				step[0 if event.axis == JOY_AXIS_LEFT_X else 1] = 1 if event.axis_value > 0 else -1
+				previous[gate] = 1
+			elif absf(event.axis_value) < .3: previous[gate] = 0
+		pause_input(step, key in [KEY_ENTER, KEY_SPACE] or button == JOY_BUTTON_A, key == KEY_ESCAPE or button in [JOY_BUTTON_START, JOY_BUTTON_B])
+		if not party.managed and (key == KEY_TAB or button == JOY_BUTTON_Y):
+			pause_selection = 5
+			activate_pause()
+		return
+	if key in [KEY_ESCAPE, KEY_ENTER] or button == JOY_BUTTON_START: set_paused(true)
 
 func adjust_menu(delta: int) -> void:
 	match menu_selection:
 		1:
 			# Solo, 1v1, 2v2, 3v3, then three-way.
-			var choice := 0 if humans == 1 else (4 if three_way else team_size)
-			choice = posmod(choice + delta, 5)
-			three_way = choice == 4
-			team_size = 1 if three_way else maxi(1, choice)
-			humans = 1 if choice == 0 else (3 if three_way else team_size * 2)
+			set_matchup_choice(posmod(local_matchup_choice() + delta, 5))
 			sim.setup(0, false, 725, 120, dual_stick, team_size, three_way)
 			sync_arena()
 		2:
@@ -917,6 +1005,71 @@ func adjust_menu(delta: int) -> void:
 		5:
 			chaos_level = posmod(chaos_level + delta, 3)
 			sim.chaos.level = chaos_level
+
+## Standalone matchups: 0 solo, 1-3 for 1v1-3v3, 4 three-way.
+func local_matchup_choice() -> int:
+	return 0 if humans == 1 else (4 if three_way else team_size)
+
+func set_matchup_choice(choice: int) -> void:
+	three_way = choice == 4
+	team_size = 1 if three_way else maxi(1, choice)
+	humans = 1 if choice == 0 else (3 if three_way else team_size * 2)
+
+func set_paused(value: bool) -> void:
+	paused = value
+	for player in sound_players: player.stream_paused = paused
+	if paused:
+		pause_selection = 0
+		pause_matchup = current_matchup()
+
+func current_matchup() -> String:
+	return managed_matchup if party.managed else ["Solo", "1v1", "2v2", "3v3", "3-way"][local_matchup_choice()]
+
+func pause_rows() -> Array:
+	var rows := ["RESUME", "NEW MATCH", "MATCHUP     %s" % pause_matchup.to_upper(), "MATCH       %d MIN" % (match_seconds / 60), "CHAOS       %s" % ["OFF", "SOME", "LOTS"][sim.chaos.level]]
+	if not party.managed: rows.append("MAIN MENU")
+	return rows
+
+func store_setting(key: String, value: Variant) -> void:
+	if not party.managed or not settings.change(key, value): return
+	GameNight.set_setting(key, value)
+
+func adjust_pause(delta: int) -> void:
+	match pause_selection:
+		2:
+			var options: Array = MATCHUPS if party.managed else ["Solo", "1v1", "2v2", "3v3", "3-way"]
+			pause_matchup = options[posmod(options.find(pause_matchup) + delta, options.size())]
+		3:
+			match_seconds = clampi(match_seconds + delta * 60, 60, 300)
+			store_setting("seconds", match_seconds)
+		4:
+			chaos_level = posmod(sim.chaos.level + delta, 3)
+			sim.chaos.level = chaos_level
+			store_setting("chaos", settings.CHAOS_LEVELS[chaos_level])
+
+func activate_pause() -> void:
+	match pause_selection:
+		0: set_paused(false)
+		1:
+			if party.managed:
+				managed_matchup = pause_matchup
+				store_setting("matchup", pause_matchup)
+			else: set_matchup_choice(["Solo", "1v1", "2v2", "3v3", "3-way"].find(pause_matchup))
+			set_paused(false)
+			start_match()
+		5:
+			reset_replay()
+			set_paused(false)
+			menu = true
+			sim.setup(0, false, randi(), 120, dual_stick, team_size, three_way)
+			sync_arena()
+		_: adjust_pause(1)
+
+func pause_input(step: Vector2i, accept: bool, back: bool) -> void:
+	if step.y != 0: pause_selection = posmod(pause_selection + step.y, pause_rows().size())
+	if step.x != 0: adjust_pause(step.x)
+	if accept: activate_pause()
+	elif back: set_paused(false)
 
 func on_party_command(message: Dictionary) -> void:
 	match message.get("type", ""):
@@ -956,11 +1109,22 @@ func on_party_command(message: Dictionary) -> void:
 					replay.skip()
 					continue
 				if not buttons & (1 << 6) and Time.get_ticks_msec() > overlay_after: overlay_ready = true
-				if buttons & (1 << 7) and not old & (1 << 7):
+				var pressed: int = buttons & ~old
+				if paused:
+					var step := Vector2i(int(pressed & (1 << 13) != 0) - int(pressed & (1 << 12) != 0), int(pressed & (1 << 11) != 0) - int(pressed & (1 << 10) != 0))
+					var axes: Array = record.get("axes", [])
+					if axes.size() >= 2:
+						var stick := Vector2(float(axes[0]), float(axes[1])) / 32767.0
+						var gate: bool = managed_buttons.get(token + "_stick", false)
+						if stick.length() > .65 and not gate:
+							if absf(stick.x) > absf(stick.y): step.x = int(signf(stick.x))
+							else: step.y = int(signf(stick.y))
+							managed_buttons[token + "_stick"] = true
+						elif stick.length() < .3: managed_buttons[token + "_stick"] = false
+					pause_input(step, pressed & 1 != 0, pressed & ((1 << 1) | (1 << 7)) != 0)
+				elif pressed & (1 << 7):
 					if sim.phase == "result": start_match()
-					else:
-						paused = not paused
-						for player in sound_players: player.stream_paused = paused
+					else: set_paused(true)
 				if buttons & (1 << 6) and not old & (1 << 6) and overlay_ready:
 					overlay_ready = false
 					GameNight.request_overlay()

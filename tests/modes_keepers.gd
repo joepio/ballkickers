@@ -84,14 +84,15 @@ func three_way_checks() -> void:
 	var s = Match.new()
 	s.setup(3, false, 21, 120, true, 1, true)
 	s.chaos.level = 0
-	check(s.teams == 3 and s.players.size() == 3 and s.keepers.size() == 3 and s.score.size() == 3, "three-way has three teams of one, three keepers and three scores")
-	check(s.players.all(func(p): return p.human == p.team), "each of three people gets their own team")
+	check(s.teams == 3 and s.players.size() == 6 and s.keepers.size() == 3 and s.score.size() == 3, "three-way has three teams of two, three keepers and three scores")
+	check(s.dual_control and s.players.all(func(p): return p.human == p.team * 2 + p.role), "each of three people steers both players of their team, one per stick")
 	var placed := true
-	for i in 3:
+	for i in 6:
 		var p: Dictionary = s.players[i]
 		var g: Dictionary = s.goals[p.team]
-		placed = placed and inside(s, p.pos) and inside(s, s.keepers[i].pos) and p.face.dot(g.n) > .99
-	check(placed, "kickoff places everyone inside the arena, facing out of their own goal")
+		placed = placed and inside(s, p.pos) and inside(s, s.keepers[p.team].pos) and p.face.dot(g.n) > .99
+	for team in 3: placed = placed and s.players[team].pos.x < s.players[team + 3].pos.x
+	check(placed, "kickoff places everyone inside the arena, facing out of their own goal, left stick on the left")
 	# A shot into blue's goal, last touched by orange, is orange's goal.
 	s.phase = "play"
 	var g: Dictionary = s.goals[1]

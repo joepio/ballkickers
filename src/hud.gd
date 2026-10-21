@@ -111,7 +111,7 @@ func _draw() -> void:
 			draw_rect(Rect2(position + Vector2(-24, -32), Vector2(48 * p.stamina, 4)), color)
 		if game.party.managed and (not s.dual_control or p.human % 2 == 0):
 			var profile: Dictionary = p.get("profile", {})
-			var center := Vector2([52, 1360, 706][p.team], (650 if p.team < 2 else 40) + (p.human / 4 if s.dual_control else p.human / s.teams) * 57)
+			var center := Vector2([52, 1360, 706][p.team], (650 if p.team < 2 else 40) + (0 if s.three_way else (p.human / 4 if s.dual_control else p.human / s.teams)) * 57)
 			panel(Rect2(center - Vector2(28, 25), Vector2(220, 51)), INK, 12)
 			draw_circle(center, 18, Color.from_string(str(profile.get("skin_color", "#fff2d2")), CREAM))
 			var avatar: String = str(profile.get("avatar", ""))
@@ -142,7 +142,7 @@ func _draw() -> void:
 		centered("FULL TIME", 330, 20, GOLD)
 		var winner: int = s.score.find(s.score.max())
 		centered(TEAM_NAMES[winner] + " WIN!", 401, 55, TEAM_COLORS[winner])
-		centered("%d  :  %d" % [s.score[0], s.score[1]], 474, 52)
+		centered("  :  ".join(s.score.map(func(n): return str(n))), 474, 52)
 		centered("START / ENTER  ·  REMATCH", 560, 21)
 	if game.notice_time > 0:
 		var notice_width: float = bold.get_string_size(game.notice, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x + 48
@@ -156,10 +156,20 @@ func _draw() -> void:
 		text(label, Vector2(800 - width / 2 + 32, 817), 15, CREAM, true)
 	if game.paused:
 		draw_rect(Rect2(0, 0, 1600, 900), Color(.04, .09, .13, .64))
-		panel(Rect2(530, 315, 540, 250), INK, 24)
-		centered("TIME OUT", 408, 62)
-		centered("START / ESC   RESUME", 475, 23, GOLD)
-		centered("Y / TAB   BACK TO MENU", 521, 17)
+		var rows: Array = game.pause_rows()
+		var top := 450 - (rows.size() * 57 + 190) / 2.0
+		panel(Rect2(540, top, 520, rows.size() * 57 + 190), INK, 24)
+		draw_game_logo(Rect2(610, top + 22, 380, 120))
+		for i in rows.size():
+			var rect := Rect2(570, top + 160 + i * 57, 460, 50)
+			var active: bool = i == game.pause_selection
+			if active: panel(rect, GOLD if i < 2 or i == 5 else Color("294457"), 12)
+			var parts: PackedStringArray = rows[i].split("  ", false)
+			text(parts[0].strip_edges(), rect.position + Vector2(22, 33), 21, INK if active and (i < 2 or i == 5) else CREAM, true)
+			if parts.size() > 1: text(parts[-1].strip_edges(), rect.position + Vector2(200, 33), 19, GOLD if active else CREAM, true)
+			if active and parts.size() > 1: text("‹   ›", rect.position + Vector2(382, 33), 25, GOLD, true)
+		if game.pause_selection == 2 and game.pause_matchup != game.current_matchup():
+			centered("STARTS WITH NEW MATCH", top + rows.size() * 57 + 178, 14, Color("a8c1c7"))
 	draw_replay(s)
 	if game.show_stats:
 		text("%d FPS  ·  %d DRAWS" % [Engine.get_frames_per_second(), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)], Vector2(25, 38), 17, INK)
@@ -167,10 +177,10 @@ func _draw() -> void:
 func draw_hints(alpha: float) -> void:
 	fade = alpha
 	panel(Rect2(440, 846, 720, 36), Color(.06, .12, .17, .55), 18)
-	if game.team_size > 1 or game.three_way:
+	if game.team_size > 1 and not game.three_way:
 		text("L STICK  MOVE / AIM", Vector2(467, 867), 16, CREAM, true)
 		text("LB / RB  SHOOT / TACKLE", Vector2(808, 867), 16, CREAM, true)
-	elif game.dual_stick:
+	elif game.dual_stick or game.three_way:
 		text("L STICK + LB", Vector2(467, 867), 16, CREAM, true)
 		text("MOVE · SHOOT / TACKLE", Vector2(632, 867), 14)
 		text("R STICK + RB", Vector2(975, 867), 16, GOLD, true)
@@ -190,7 +200,7 @@ func draw_menu() -> void:
 	draw_game_logo(Rect2(55, 140, 505, 190))
 	text("More friends. Bigger trouble.", Vector2(66, 375), 25, CREAM)
 	var matchup: String = "MATCHUP     %s" % ("3-WAY" if game.three_way else ("%dv%d" % [game.team_size, game.team_size] if game.humans > 1 else "SOLO vs AI")) if game.dual_stick or game.three_way else "PLAYERS     %d" % game.humans
-	var options: Array = ["KICK OFF", matchup, "CONTROLS    %s" % ("SINGLE" if game.team_size > 1 or game.three_way else ("DUAL" if game.dual_stick else "CLASSIC")), "MATCH       %d MIN" % (game.match_seconds / 60), "SOUND       %s" % ("ON" if game.sound_enabled else "OFF"), "CHAOS       %s" % ["OFF", "SOME", "LOTS"][game.chaos_level]]
+	var options: Array = ["KICK OFF", matchup, "CONTROLS    %s" % ("DUAL" if game.three_way else ("SINGLE" if game.team_size > 1 else ("DUAL" if game.dual_stick else "CLASSIC"))), "MATCH       %d MIN" % (game.match_seconds / 60), "SOUND       %s" % ("ON" if game.sound_enabled else "OFF"), "CHAOS       %s" % ["OFF", "SOME", "LOTS"][game.chaos_level]]
 	for i in options.size():
 		var rect := Rect2(61, 412 + i * 57, 475, 50)
 		hit_rects.append(rect)
@@ -201,9 +211,9 @@ func draw_menu() -> void:
 		if parts.size() > 1: text(parts[-1].strip_edges(), rect.position + Vector2(190, 33), 19, GOLD if active else CREAM, true)
 		if active and i > 0: text("‹   ›", rect.position + Vector2(388, 33), 25, GOLD, true)
 	if game.three_way:
-		text("Three players, three goals. Defend yours, score in both others.", Vector2(65, 775), 18, Color("a8c1c7"))
-		text("Left stick move / aim     LB or RB shoot / tackle", Vector2(65, 811), 17, CREAM)
-		text("Keyboard: WASD + Q", Vector2(65, 838), 16, CREAM)
+		text("Three teams, three goals. Two units per controller.", Vector2(65, 775), 18, Color("a8c1c7"))
+		text("Left stick + LB     /     Right stick + RB", Vector2(65, 811), 18, CREAM)
+		text("Keyboard: WASD + Q    /    Arrows + CTRL", Vector2(65, 838), 16, CREAM)
 	elif game.team_size > 1:
 		text("One controller. One unit. Bots fill empty places.", Vector2(65, 775), 18, Color("a8c1c7"))
 		text("Left stick move / aim     LB or RB shoot / tackle", Vector2(65, 811), 17, CREAM)
@@ -224,16 +234,6 @@ func draw_replay(s) -> void:
 	var color: Color = TEAM_COLORS[r.team]
 	if game.replay_showing():
 		var scale := Vector2(size.x / 1600.0, size.y / 900.0)
-		# Telestrator: the ball's recent path, chalked over the pitch.
-		var path := PackedVector2Array()
-		var view: Camera3D = get_viewport().get_camera_3d()
-		if r.stage in ["play", "hold"]:
-			for point in r.ball_path(50):
-				var world := Vector3(point.x, .15, point.z)
-				if not view.is_position_behind(world): path.append(view.unproject_position(world) / scale)
-		if path.size() > 1:
-			draw_polyline(path, Color(INK, .5), 11, true)
-			draw_polyline(path, GOLD, 6, true)
 		draw_rect(Rect2(0, 0, 1600, 900), Color(1, .93, .78, .05))
 		# Broadcast bug.
 		var tilt := Transform2D(-.06, Vector2(46, 46))

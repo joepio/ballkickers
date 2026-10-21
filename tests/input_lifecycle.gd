@@ -47,6 +47,18 @@ func run() -> void:
 	game.party.handle({"type": "controller_frame", "controllers": [{"controller": "opaque:B", "axes": [0,0], "buttons": 0}]})
 	game.party.handle({"type": "controller_frame", "controllers": [{"controller": "opaque:B", "axes": [0,0], "buttons": 128}]})
 	check(not game.paused, "host Start can resume while simulation is paused")
+	# The time-out menu picks the next matchup: down twice, right four times
+	# (Auto to 3-way), up to New match, A.
+	var presses := [0, 128, 2048, 2048, 8192, 8192, 8192, 8192, 1024, 1]
+	for bits in presses:
+		game.party.handle({"type": "controller_frame", "controllers": [{"controller": "opaque:B", "axes": [0,0], "buttons": bits}]})
+		game.party.handle({"type": "controller_frame", "controllers": [{"controller": "opaque:B", "axes": [0,0], "buttons": 0}]})
+	check(not game.paused and game.three_way and game.sim.players.size() == 6 and game.sim.dual_control, "time-out menu starts a three-way match of two players per controller")
+	check(game.sim.players.filter(func(p): return p.human >= 0).map(func(p): return p.human) == [0, 2, 1, 3] and game.settings.values.matchup == "3-way", "both people steer two players and the choice is stored as a setting")
+	game.managed_matchup = "Auto"
+	game.settings.change("matchup", "Auto")
+	game.three_way = false
+	game.start_match()
 	game.party.handle({"type": "pause", "session": "test"})
 	var clock: float = game.sim.clock
 	game._physics_process(1.0)

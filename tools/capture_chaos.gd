@@ -3,6 +3,8 @@ extends SceneTree
 ##   -- --chaos=dog --after=3 --out=/tmp/dog.png      a chaos event in progress
 ##   -- --goal=1.2 --out=/tmp/goal.png                 the celebration after a goal
 ##   -- --replay=4 --out=/tmp/replay.png               4 s into the goal replay
+##   -- --keeper=.5 --out=/tmp/keeper.png              .5 s after a forced keeper dive
+##   -- --pause --out=/tmp/pause.png                   the time-out menu on the matchup row
 ## Set SEED=n to pick which reaction shots (scorer, coaches, fans) a replay gets.
 func _initialize() -> void:
 	run.call_deferred()
@@ -16,6 +18,8 @@ func run() -> void:
 	var goal := -1.0
 	var replay := -1.0
 	var three := false
+	var keeper := -1.0
+	var pause := false
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--chaos="): kind = arg.trim_prefix("--chaos=")
 		elif arg.begins_with("--after="): after = float(arg.trim_prefix("--after="))
@@ -24,6 +28,8 @@ func run() -> void:
 		elif arg.begins_with("--goal="): goal = float(arg.trim_prefix("--goal="))
 		elif arg.begins_with("--replay="): replay = float(arg.trim_prefix("--replay="))
 		elif arg == "--three": three = true
+		elif arg.begins_with("--keeper="): keeper = float(arg.trim_prefix("--keeper="))
+		elif arg == "--pause": pause = true
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	game.sound_enabled = false
@@ -91,6 +97,21 @@ func run() -> void:
 			while t < replay and game.replay.active:
 				tick(game, dt)
 				t += dt
+	if keeper >= 0:
+		var k: Dictionary = game.sim.keepers[0]
+		k.dive = .28
+		k.recovery = .85
+		k.dive_dir = 1.0
+		k.vel = 12.0
+		t = 0.0
+		while t < keeper:
+			tick(game, dt)
+			t += dt
+	if pause:
+		game.set_paused(true)
+		game.pause_selection = 2
+		game.pause_matchup = "3-way"
+		game.hud.queue_redraw()
 	for i in 3: await process_frame
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(out)

@@ -20,12 +20,12 @@ place. Controller seats alternate orange/blue teams and retain ownership.
 1v1 and 2v2 share the original pitch size. 3v3 has three times the pitch area,
 with unchanged unit and goal sizes. `-- --teams=2` or `-- --teams=3` selects them on launch.
 
-**3-way** is for exactly three people: three teams of one (Tangerines, Blueberries
-and Limes), each with its own keeper and goal, on a triangular arena with the
-corners cut off. Defend your goal and score in either of the other two. The last
+**3-way** is for exactly three people: three teams (Tangerines, Blueberries
+and Limes), each with its own keeper and goal, on a large triangular arena with
+the corners cut off. Like 1v1, every person steers two players with one
+controller (left stick + LB, right stick + RB). Defend your goal and score in either of the other two. The last
 other team to touch the ball gets the goal; an own goal goes to whoever touched
-it before. The team that concedes kicks off. Controls are the 2v2 ones (left
-stick, either shoulder). `-- --three` starts it on launch.
+it before. The team that concedes kicks off. `-- --three` starts it on launch.
 The menu defaults to **1v1** (two controllers). At every kickoff and rematch,
 each team's L unit starts screen-left of its R unit; stick ownership stays fixed
 while you play, even if the units cross each other.
@@ -48,7 +48,10 @@ outline and distinct white/gold/lilac centers for teammates. No P1/P2 labels.
 Passing, sprinting and automatic switching are disabled for this experiment.
 The two units keep their left/right assignments throughout the match.
 
-Start / Escape pauses. Y / Tab returns to the menu while paused. F11 toggles
+Start / Escape opens the time-out menu: Resume, New match, Matchup, match
+length and chaos. A matchup picked there (including 3-way) starts with New match;
+under GameNight it is also stored as the `matchup` setting. Y / Tab returns to
+the menu while paused (standalone only). F11 toggles
 fullscreen. **Controls → Classic** retains the earlier experiment and AI code:
 1–4 people, X / J shoots with the ball or tackles without, A / K passes,
 RT / Shift sprints, LB / Space switches, and control follows a bot receiving
@@ -177,7 +180,7 @@ owns the connection, lifecycle and window handling; `src/party.gd` maps it onto
 Ballkickers' seats and profiles. Host controller frames are authoritative. Opaque device tokens retain ownership; stale input is
 neutral after 250 ms. Managed sessions skip the menu, prepare off-screen, freeze
 and hide on host pause, resume the same state, and support repeated sessions.
-Back/Select returns to GameNight. Standalone Start is an in-game pause menu.
+Back/Select returns to GameNight. Start opens the in-game time-out menu, also under GameNight.
 Party profile names, colours, skin and pixel portraits appear in the HUD.
 New players join at the next session (`instant_join: false`). Local multiplayer
 only; no online netcode. A managed match automatically rematches after nine seconds.

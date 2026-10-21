@@ -15,8 +15,9 @@ var power_charge := 1.0
 var super_shots := true
 var replays := true
 var team_size := 1
-## Three-way mode: three teams of one on a six-sided arena (a triangle with its
-## corners cut off), one goal in the middle of each long side.
+## Three-way mode: three teams on a six-sided arena (a triangle with its
+## corners cut off), one goal in the middle of each long side. Every team is
+## one controller steering two players, one per stick.
 var three_way := false
 var teams := 2
 var arena_factor := 1.0
@@ -28,9 +29,9 @@ var goals: Array = []
 var walls: Array = []
 var assist_team := -1
 var conceded_team := 1
-const TRI_R := 24.0
+const TRI_R := 30.0
 const TRI_CUT := .7
-const TRI_FACTOR := 1.2
+const TRI_FACTOR := 1.5
 ## The middle of the pitch: the centre spot. Three-way slides the arena back
 ## so it sits centred in the stadium.
 var arena_center := Vector2.ZERO
@@ -74,7 +75,7 @@ func setup(humans: int = 1, coop: bool = false, seed_value: int = 42, seconds: f
 	half_z = HALF_Z * arena_factor
 	build_arena()
 	rng.seed = seed_value
-	dual_control = dual and team_size == 1 and not three
+	dual_control = (dual and team_size == 1) or three
 	arcade_control = dual or team_size > 1 or three
 	players.clear()
 	keepers.clear()
@@ -93,12 +94,12 @@ func setup(humans: int = 1, coop: bool = false, seed_value: int = 42, seconds: f
 	stats = {"shots": 0, "passes": 0, "tackles": 0, "goals": 0, "supers": 0}
 	stats["saves"] = 0
 	chaos.setup(seed_value)
-	for i in (3 if three_way else (4 if team_size == 1 else team_size * 2)):
+	for i in (6 if three_way else (4 if team_size == 1 else team_size * 2)):
 		var team: int = i % teams
 		var role: int = i / teams
 		var human := -1
 		if three_way:
-			if i < humans: human = i
+			if team < humans: human = team * 2 + role
 		elif dual_control:
 			var controller: int = (role / 2) * 2 + team
 			if controller < humans: human = controller * 2 + role % 2
@@ -181,8 +182,11 @@ func kickoff(team: int) -> void:
 	for i in players.size():
 		var p: Dictionary = players[i]
 		if three_way:
+			# Side by side in front of their own goal, the left stick's player on
+			# the left of the screen, like the two-team kickoff.
 			var g: Dictionary = goals[p.team]
-			p.pos = g.c + g.n * 7.0
+			var left: Vector2 = -g.t if g.t.x > 0 else g.t
+			p.pos = g.c + g.n * 8.0 + left * (4.0 if p.role == 0 else -4.0)
 			p.face = g.n
 		var direction: float = 1 if p.team == 0 else -1
 		# Screen X increases to the right for both teams. Mirror the formation,
@@ -359,7 +363,7 @@ func shoot_ball(i: int) -> void:
 	else: power[p.team] = minf(100, power[p.team] + 6)
 	owner = -1
 	touch(i)
-	ball = vec3(p.pos + direction * 1.2, .55)
+	ball = vec3(confine(p.pos + direction * 1.2, .43) if three_way else p.pos + direction * 1.2, .55)
 	ball_velocity = vec3(direction * (55.0 if super_shot else 24.0 + charge * 17.0) * shot_power, 2.6 + charge * 1.2)
 	pickup_lock = .22
 	p.kick = .25
@@ -452,6 +456,9 @@ func tri_walls(before: Vector3) -> void:
 			tri_goal(w.goal)
 			return
 		bounce_wall(w, 0.0, .8)
+	# A push off a goal side can land past a corner wall where the two meet.
+	for w in walls:
+		if w.goal < 0: bounce_wall(w, .43, .82)
 	pick_up()
 
 func bounce_wall(w: Dictionary, margin: float, keep: float) -> void:
@@ -625,7 +632,15 @@ func ai_three_way(i: int, dt: float) -> Dictionary:
 		var g: Dictionary = goals[p.get("aim_goal", (p.team + 1) % teams)]
 		if has_ball: p.intent = g.c + g.n * 2.0 + g.t * p.drift * .5
 		elif own_keeper: p.intent = goals[p.team].c + goals[p.team].n * 9.0
-		else: p.intent = ball_pos + Vector2(ball_velocity.x, ball_velocity.z).limit_length(16) * .10
+		else:
+			p.intent = ball_pos + Vector2(ball_velocity.x, ball_velocity.z).limit_length(16) * .10
+			# Two players a side: whoever is further from the ball covers instead
+			# of crowding in, up front when the mate has it, else in front of goal.
+			var mate: int = i + 3 if i < 3 else i - 3
+			if mate < players.size() and (owner == mate or players[mate].pos.distance_to(ball_pos) + 1.5 < p.pos.distance_to(ball_pos)):
+				var home: Dictionary = goals[p.team]
+				if owner == mate: p.intent = g.c + g.n * 7.0 + g.t * p.drift * 1.5
+				else: p.intent = home.c + home.n * 9.0 + (ball_pos - home.c).limit_length(6.0) * .6
 	var move: Vector2 = (p.intent - p.pos).limit_length()
 	var shoot := false
 	if has_ball:
