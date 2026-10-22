@@ -4,6 +4,7 @@ extends SceneTree
 ##   -- --goal=1.2 --out=/tmp/goal.png                 the celebration after a goal
 ##   -- --replay=4 --out=/tmp/replay.png               4 s into the goal replay
 ##   -- --keeper=.5 --out=/tmp/keeper.png              .5 s after a forced keeper dive
+##   -- --signs --out=/tmp/signs.png                   sample player boards in the stand
 ##   -- --pause --out=/tmp/pause.png                   the time-out menu on the matchup row
 ## Set SEED=n to pick which reaction shots (scorer, coaches, fans) a replay gets.
 func _initialize() -> void:
@@ -20,6 +21,7 @@ func run() -> void:
 	var three := false
 	var keeper := -1.0
 	var pause := false
+	var signs := false
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--chaos="): kind = arg.trim_prefix("--chaos=")
 		elif arg.begins_with("--after="): after = float(arg.trim_prefix("--after="))
@@ -30,6 +32,7 @@ func run() -> void:
 		elif arg == "--three": three = true
 		elif arg.begins_with("--keeper="): keeper = float(arg.trim_prefix("--keeper="))
 		elif arg == "--pause": pause = true
+		elif arg == "--signs": signs = true
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	game.sound_enabled = false
@@ -42,6 +45,12 @@ func run() -> void:
 	game.sim.chaos.level = 1 if kind != "" else 0
 	game.sim.setup(0, false, 725, 120, true, teams, three)
 	game.sync_arena()
+	if signs:
+		var people := []
+		var names := ["Joep", "Polle", "Marsh", "Mallow", "Kiki", "Bas"]
+		for i in (3 if three else 2 * teams):
+			people.append({"team": i % (3 if three else 2), "name": names[i], "skin": [Color("f2c29b"), Color("b47a50"), Color("ffe0bd")][i % 3], "texture": portrait(i) if i != 1 else null})
+		game.stadium.crowd.set_players(people)
 	game.sim.phase = "play"
 	game.sim.chaos.forced = kind
 	var factor: float = game.sim.arena_factor
@@ -117,6 +126,23 @@ func run() -> void:
 	root.get_texture().get_image().save_png(out)
 	print("CAPTURE ", out)
 	quit()
+
+## A stand-in 48 px pixel portrait (hair over a face circle at 24, 28).
+func portrait(i: int) -> Texture2D:
+	var image := Image.create(48, 48, false, Image.FORMAT_RGBA8)
+	image.fill(Color.TRANSPARENT)
+	var skin: Color = [Color("f2c29b"), Color("b47a50"), Color("ffe0bd")][i % 3]
+	var hair: Color = [Color("2b1d14"), Color("c9503a"), Color("e8c35a")][i % 3]
+	for y in 48:
+		for x in 48:
+			var d := Vector2(x - 24, y - 28).length()
+			if d < 12: image.set_pixel(x, y, skin)
+			if d < 13.5 and y < 22: image.set_pixel(x, y, hair)
+	for x in [19, 28]:
+		image.set_pixel(x, 28, Color("182d41"))
+		image.set_pixel(x + 1, 28, Color("182d41"))
+	for x in range(21, 28): image.set_pixel(x, 34, Color("182d41"))
+	return ImageTexture.create_from_image(image)
 
 func tick(game, dt: float) -> void:
 	game._physics_process(dt)

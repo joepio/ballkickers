@@ -37,6 +37,8 @@ func run() -> void:
 	check(not game.read_dual_control(0, 0).tackle and not game.read_dual_control(0, 1).tackle, "held shoulders only trigger a single dash edge per half")
 	check(not left.sprint and not right.sprint and not left.get("pass"), "dual inputs ignore sprint and pass")
 	check(game.sim.players[0].name == "Marsh" and game.sim.players[1].name == "Mallow", "profiles keyed by player ID")
+	var signs: Array = game.stadium.crowd.player_signs
+	check(signs[0][0].visible and signs[0][0].get_node("Board/Name").text == "MARSH" and signs[1][0].visible and not signs[0][1].visible, "each person gets a fan board with their name in their team's end")
 	root.get_node("GameNight")._frame_at -= 300
 	check(game.read_control(0).move == Vector2.ZERO and not game.read_control(0).shoot, "stale controller input becomes neutral")
 	check(game.read_dual_control(0, 0).move == Vector2.ZERO and not game.read_dual_control(0, 1).shoot, "both dual halves neutralize on stale input")

@@ -11,6 +11,11 @@ const NEUTRAL = [Color("ffc94d"), Color("ad85cc"), Color("6ccf7a"), Color("e84d6
 const SKINS = [Color("ffe0bd"), Color("f2c29b"), Color("d9a074"), Color("b47a50"), Color("8a5634"), Color("5e3a22")]
 const HAIR = [Color("2b1d14"), Color("5a3a1e"), Color("c9503a"), Color("e8c35a"), Color("9a9a9a"), Color("1b1b2a")]
 const SIZE := 1.35
+## Front row of the back stand (seat = column): up to three boards per team,
+## orange on the left, lime in the middle, blue on the right. The hand-written
+## signs in that row step aside while players have boards.
+const PLAYER_SIGN_SEATS = [[8, 16, 24], [53, 45, 37], [31, 26, 36]]
+const TEAM_SIGN_COLORS = [ORANGE, BLUE, Color("8fdc5a")]
 const SIGNS = ["HI MUM!", "TANGERINES 4 LIFE", "BLUEBERRY TILL I DIE", "MARRY ME BUBS", "I SKIPPED WORK", "MORE GOALS PLS", "ZIG IS MY HERO", "WHO IS THE REF?"]
 const SHADER = """shader_type spatial;
 uniform float cheer_0 = 0.0;
@@ -47,6 +52,8 @@ var material := ShaderMaterial.new()
 var seats: Array = []
 var layers: Dictionary = {}
 var props: Array = []
+## Per team, the player boards in seat order.
+var player_signs: Array = [[], [], []]
 var flag_shader := Shader.new()
 var cheer := [0.0, 0.0]
 var gloom := [0.0, 0.0]
@@ -252,7 +259,13 @@ func build_props(random: RandomNumberGenerator) -> void:
 		label.outline_size = 0
 		label.position = Vector3(0, 1.35, .18)
 		board.add_child(label)
-		props.append({"node": node, "seat": seat, "kind": "sign", "phase": random.randf() * TAU})
+		props.append({"node": node, "seat": seat, "kind": "sign", "phase": random.randf() * TAU, "front": n < 4})
+	for team in 3:
+		for seat in PLAYER_SIGN_SEATS[team]:
+			var node := player_sign(team, label_font)
+			add_child(node)
+			player_signs[team].append(node)
+			props.append({"node": node, "seat": seat, "kind": "sign", "phase": random.randf() * TAU})
 	for n in 4:
 		var side := -1 if n < 2 else 1
 		var seat: int = 62 + (0 if side < 0 else 36) + 8 + (n % 2) * 18 + 134
@@ -312,6 +325,105 @@ func event(type: String, team: int = -1) -> void:
 		"finish":
 			cheer[team] = 1.0
 			gloom[1 - team] = 1.0
+
+func player_sign(team: int, label_font: Font) -> Node3D:
+	# A big board in the team colour: the player's face on top, name below.
+	var node := Node3D.new()
+	node.visible = false
+	var board := Node3D.new()
+	board.name = "Board"
+	board.scale = Vector3.ONE * 1.3
+	node.add_child(board)
+	var frame := MeshInstance3D.new()
+	frame.mesh = BoxMesh.new()
+	frame.mesh.size = Vector3(2.4, 2.8, .06)
+	frame.material_override = flat(TEAM_SIGN_COLORS[team])
+	frame.position = Vector3(0, 1.8, .15)
+	board.add_child(frame)
+	var card := MeshInstance3D.new()
+	card.mesh = BoxMesh.new()
+	card.mesh.size = Vector3(2.16, 2.56, .06)
+	card.material_override = flat(CREAM)
+	card.position = Vector3(0, 1.8, .19)
+	board.add_child(card)
+	var skin := MeshInstance3D.new()
+	skin.name = "Skin"
+	var disc := CylinderMesh.new()
+	disc.top_radius = .62
+	disc.bottom_radius = .62
+	disc.height = .02
+	disc.radial_segments = 24
+	skin.mesh = disc
+	skin.rotation.x = PI / 2
+	skin.position = Vector3(0, 2.2, .23)
+	board.add_child(skin)
+	var eyes := Node3D.new()
+	eyes.name = "Eyes"
+	eyes.position = Vector3(0, 2.25, .24)
+	board.add_child(eyes)
+	for side in [-1, 1]:
+		var eye := MeshInstance3D.new()
+		eye.mesh = disc.duplicate()
+		eye.mesh.top_radius = .07
+		eye.mesh.bottom_radius = .07
+		eye.material_override = flat(INK)
+		eye.rotation.x = PI / 2
+		eye.position.x = side * .2
+		eyes.add_child(eye)
+	var face := Sprite3D.new()
+	face.name = "Face"
+	face.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	face.position = Vector3(0, 2.2, .25)
+	board.add_child(face)
+	var name_label := Label3D.new()
+	name_label.name = "Name"
+	name_label.font = label_font
+	name_label.font_size = 64
+	name_label.modulate = TEAM_SIGN_COLORS[team].darkened(.25)
+	name_label.outline_size = 12
+	name_label.outline_modulate = INK
+	name_label.position = Vector3(0, .95, .24)
+	board.add_child(name_label)
+	return node
+
+func flat(color: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	return mat
+
+## Shows a board for each person playing: [{team, name, skin, texture}], with
+## texture a pixel portrait or null.
+func set_players(people: Array) -> void:
+	for team in 3:
+		for node in player_signs[team]: node.visible = false
+	for prop in props:
+		if prop.get("front", false): prop.node.visible = people.is_empty()
+	var used := [0, 0, 0]
+	for person in people:
+		var team: int = person.team
+		if team < 0 or team > 2 or used[team] >= player_signs[team].size(): continue
+		var node: Node3D = player_signs[team][used[team]]
+		used[team] += 1
+		node.visible = true
+		var board: Node3D = node.get_node("Board")
+		var skin: MeshInstance3D = board.get_node("Skin")
+		skin.material_override = flat(person.skin)
+		var face: Sprite3D = board.get_node("Face")
+		var texture: Texture2D = person.get("texture")
+		face.texture = texture
+		face.visible = texture != null
+		board.get_node("Eyes").visible = texture == null
+		skin.visible = true
+		if texture:
+			# Same framing as the HUD portrait: the face circle fills the disc.
+			var radius_px: float = 12.0 if texture.get_width() == 48 else texture.get_width() * .35
+			face.pixel_size = .62 / radius_px
+			var origin: Vector2 = Vector2(24, 28) if texture.get_width() == 48 else texture.get_size() / 2
+			face.position.y = 2.2 + (origin.y - texture.get_height() / 2.0) * face.pixel_size
+		var label: Label3D = board.get_node("Name")
+		var text: String = str(person.name).to_upper().left(14)
+		label.text = text
+		label.pixel_size = minf(.02, 2.1 / maxf(1.0, label.font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 64).x))
 
 func update(dt: float, quiet: bool) -> void:
 	time += dt

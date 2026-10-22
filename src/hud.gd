@@ -112,7 +112,8 @@ func _draw() -> void:
 		if game.party.managed and (not s.dual_control or p.human % 2 == 0):
 			var profile: Dictionary = p.get("profile", {})
 			var center := Vector2([52, 1360, 706][p.team], (650 if p.team < 2 else 40) + (0 if s.three_way else (p.human / 4 if s.dual_control else p.human / s.teams)) * 57)
-			panel(Rect2(center - Vector2(28, 25), Vector2(220, 51)), INK, 12)
+			# Names live on the fans' boards in the stand; the HUD keeps the face.
+			panel(Rect2(center - Vector2(28, 25), Vector2(56 if s.dual_control else 92, 51)), INK, 12)
 			draw_circle(center, 18, Color.from_string(str(profile.get("skin_color", "#fff2d2")), CREAM))
 			var avatar: String = str(profile.get("avatar", ""))
 			if game.profile_textures.has(avatar):
@@ -123,8 +124,7 @@ func _draw() -> void:
 			else:
 				draw_circle(center + Vector2(-5, -1), 2, INK)
 				draw_circle(center + Vector2(5, -1), 2, INK)
-			text(str(p.name).left(16), center + Vector2(31, 7), 17, color, true)
-			if not s.dual_control: draw_texture_rect(control_icons[3], Rect2(center + Vector2(162, -12), Vector2(24, 24)), false, identity_color(p))
+			if not s.dual_control: draw_texture_rect(control_icons[3], Rect2(center + Vector2(28, -12), Vector2(24, 24)), false, identity_color(p))
 	# Controls are a reminder for the opening seconds, then they get out of the way.
 	var hint := clampf((9.0 - s.elapsed) / 1.5, 0, 1)
 	if hint > 0 and not game.replay_showing():

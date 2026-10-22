@@ -1154,6 +1154,7 @@ func dye_hair(athlete: Node3D, color: Color) -> void:
 		if part is MeshInstance3D and part.get_meta("dye", true): part.material_override = stadium.material(color)
 
 func apply_profiles() -> void:
+	stadium.crowd.set_players([])
 	if not party.managed: return
 	var seats: Array = party.human_seats()
 	for i in sim.players.size():
@@ -1183,6 +1184,13 @@ func apply_profiles() -> void:
 				for pixel in pixels.size():
 					if pixels[pixel] != null: image.set_pixel(pixel % w, pixel / w, Color.from_string(str(pixels[pixel]), Color.TRANSPARENT))
 				profile_textures[avatar] = ImageTexture.create_from_image(image)
+	# Each person gets one big board in their team's end of the stand.
+	var people: Array = []
+	for p in sim.players:
+		if p.human < 0 or not p.has("profile") or (sim.dual_control and p.human % 2 == 1): continue
+		var avatar: String = str(p.profile.get("avatar", ""))
+		people.append({"team": p.team, "name": p.name, "skin": Color.from_string(str(p.profile.get("skin_color", "#fff2d2")), Stadium.CREAM), "texture": profile_textures.get(avatar)})
+	stadium.crowd.set_players(people)
 
 func capture() -> void:
 	await RenderingServer.frame_post_draw

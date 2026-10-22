@@ -181,7 +181,7 @@ Ballkickers' seats and profiles. Host controller frames are authoritative. Opaqu
 neutral after 250 ms. Managed sessions skip the menu, prepare off-screen, freeze
 and hide on host pause, resume the same state, and support repeated sessions.
 Back/Select returns to GameNight. Start opens the in-game time-out menu, also under GameNight.
-Party profile names, colours, skin and pixel portraits appear in the HUD.
+Each person's pixel portrait and name are on a big fan board in their team's end of the back stand; the HUD only shows the portrait.
 New players join at the next session (`instant_join: false`). Local multiplayer
 only; no online netcode. A managed match automatically rematches after nine seconds.
 
