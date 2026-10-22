@@ -461,9 +461,7 @@ func update_visuals(dt: float) -> void:
 func pose_keeper(node: Node3D, body: Node3D, k: Dictionary, team: int, inward: float, snap: bool, dt: float) -> void:
 	var t: float = sim.elapsed + team * 1.7
 	var side: float = k.dive_dir * inward
-	if k.dive > 0: node.set_meta("dived", true)
-	elif k.recovery <= 0: node.set_meta("dived", false)
-	var dived: bool = node.get_meta("dived", false)
+	var dived: bool = k.down
 	var holding: bool = sim.keeper_owner == team
 	var shuffle: float = clampf(absf(k.vel) / 4.0, 0, 1) if k.dive <= 0 else 0.0
 	var sway: float = signf(k.vel) * -inward

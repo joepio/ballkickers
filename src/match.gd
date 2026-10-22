@@ -81,7 +81,7 @@ func setup(humans: int = 1, coop: bool = false, seed_value: int = 42, seconds: f
 	keepers.clear()
 	for team in teams:
 		keepers.append({"team": team, "pos": keeper_home(team),
-			"vel": 0.0, "dive": 0.0, "dive_dir": 1.0, "recovery": 0.0, "reaction": 0.0, "hold": 0.0, "kick": 0.0, "push": 0.0, "slap": 0.0})
+			"vel": 0.0, "dive": 0.0, "dive_dir": 1.0, "recovery": 0.0, "reaction": 0.0, "hold": 0.0, "kick": 0.0, "push": 0.0, "slap": 0.0, "down": false})
 	score = []
 	power = []
 	for team in teams:
@@ -179,6 +179,7 @@ func kickoff(team: int) -> void:
 	for k in keepers:
 		k.pos = keeper_home(k.team)
 		for field in ["vel", "dive", "recovery", "reaction", "hold", "kick", "push", "slap"]: k[field] = 0.0
+		k.down = false
 	for i in players.size():
 		var p: Dictionary = players[i]
 		if three_way:
@@ -658,6 +659,8 @@ static func vec3(v: Vector2, height: float = 0) -> Vector3:
 ## Walk up to the keeper and you get a clip round the ear: knocked down and
 ## pushed back, losing the ball if you had it.
 const SLAP_REACH := 1.55
+## Shots slower than this (m/s) never beat a keeper they reach.
+const BEAT_SPEED := 42.0
 
 func keeper_slap(k: Dictionary) -> void:
 	if k.slap > 0 or k.dive > 0 or keeper_owner == k.team: return
@@ -687,6 +690,7 @@ func update_keepers(dt: float) -> void:
 	for k in keepers:
 		var g: Dictionary = goals[k.team]
 		k.recovery = maxf(0, k.recovery - dt)
+		if k.recovery <= 0: k.down = false
 		k.kick = maxf(0, k.kick - dt)
 		k.slap = maxf(0, k.slap - dt)
 		keeper_slap(k)
@@ -721,6 +725,7 @@ func update_keepers(dt: float) -> void:
 			if threat and k.reaction > .14 and eta < .36 and absf(target - lateral) > .65:
 				k.dive = .28
 				k.recovery = .85
+				k.down = true
 				k.dive_dir = signf(target - lateral)
 				k.vel = k.dive_dir * 12.0 * keeper_speed
 				events.append({"type": "keeper_dive", "pos": vec3(k.pos, .7), "team": k.team})
@@ -735,7 +740,9 @@ func keeper_save(before: Vector3, after: Vector3) -> bool:
 	# Swept test, before scoring: fast balls cannot tunnel through the gloves.
 	var segment := after - before
 	for k in keepers:
-		if k.recovery > 0 and k.dive <= 0: continue
+		# Only a keeper lying on the grass lets the ball past; standing up he
+		# always gets a body on it.
+		if k.down and k.dive <= 0: continue
 		var center := vec3(k.pos, 1.0)
 		var t := clampf((center - before).dot(segment) / segment.length_squared(), 0, 1) if segment.length_squared() > .00001 else 0.0
 		var contact := before + segment * t
@@ -747,11 +754,16 @@ func keeper_save(before: Vector3, after: Vector3) -> bool:
 		var speed := ball_velocity.length()
 		var difficulty := clampf((speed - 18.0) / 42.0, 0.0, 1.0)
 		var edge := clampf(Vector2(contact.x - center.x, contact.z - center.z).length() / reach, 0, 1)
-		var save_chance := clampf(.98 - difficulty * .64 - edge * .10, .22, .98)
-		# One seeded roll per contact, with recovery preventing repeated rerolls.
-		if rng.randf() > save_chance:
+		# A ball that reaches the keeper is caught or parried. Only a thunderbolt
+		# (well above a full normal charge) can knock him over and go through,
+		# and even then less than half the time. One seeded roll per contact;
+		# a floored keeper cannot be rolled again.
+		var beat_chance := clampf((speed - BEAT_SPEED) / 14.0, 0, 1) * .4 + edge * .1 if speed > BEAT_SPEED else 0.0
+		if rng.randf() < beat_chance:
 			k.recovery = .8
 			k.dive = 0.0
+			k.down = true
+			k.dive_dir = signf((Vector2(contact.x, contact.z) - k.pos).dot(g.t)) if absf((Vector2(contact.x, contact.z) - k.pos).dot(g.t)) > .05 else k.dive_dir
 			k.push = -lerpf(1.0, 12.0, difficulty)
 			ball_velocity *= .84
 			events.append({"type": "keeper_beaten", "pos": contact, "team": k.team})

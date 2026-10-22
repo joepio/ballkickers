@@ -53,11 +53,12 @@ func _initialize() -> void:
 			if s.keeper_save(Vector3(18, .8, 0), Vector3(20, .8, 0)): saved += 1
 			s.update_keepers(.1)
 			if s.keepers[1].pos.x > 19.5: pushed += 1
-		check(saved > 0 and saved < 300, "speed %d can be saved or missed" % speed)
+		if speed < 40: check(saved == 300, "a speed %d ball that reaches the keeper is always kept out" % speed)
+		else: check(saved > 150 and saved < 300, "a speed %d thunderbolt beats the keeper sometimes, not mostly (%d/300 kept)" % [speed, saved])
 		if speed == 55: check(pushed > 250, "hard shots visibly knock keepers toward their goal")
 		saves.append(saved)
 	print("SAVES_PER_300 ", saves)
-	check(saves[0] > saves[1] + 40 and saves[1] > saves[2] + 40, "charged shots are substantially harder to keep")
+	check(saves[2] < saves[1], "only the hardest shots get past a keeper")
 	s.setup(0, false, 12, 120, true)
 	s.phase = "play"
 	var attacker: int = s.players.find(s.players.filter(func(p): return p.team == 0)[0])

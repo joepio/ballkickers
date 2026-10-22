@@ -95,10 +95,12 @@ func _initialize() -> void:
 		s.move_ball(.05)
 		if s.stats.saves > 0: break
 	check(s.score[0] == 0 and s.ball_velocity.x < 0 and s.keepers[1].recovery > .5, "swept save stops tunnelling and parries powerful shots")
+	# Standing after a parry he still blocks; only on the grass is he beaten.
+	s.keepers[1].down = true
 	s.ball = Vector3(18.7, .5, 0)
 	s.ball_velocity = Vector3(50, 0, 0)
 	s.move_ball(.06)
-	check(s.score[0] == 1, "rebound shot can beat a recovering keeper")
+	check(s.score[0] == 1, "a rebound beats a keeper lying on the grass")
 	s.setup(0)
 	s.phase = "play"
 	s.ball = Vector3(19, .5, 3.0)
