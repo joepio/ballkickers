@@ -1,8 +1,8 @@
-# Publishing to GameNight
+# Publishing to Gamepad Party
 
-Successful trusted builds can upload directly to GameNight through GameNight's reusable publishing workflow (`.github/workflows/publish-gamenight.yml`). Pull requests never receive publishing credentials. Builds go to **preview**; a developer tests the build and selects **Publish to gamers** in the portal. Existing releases remain available for rollback.
+Successful trusted builds can upload directly to Gamepad Party through Gamepad Party's reusable publishing workflow (`.github/workflows/publish-gamenight.yml`). Pull requests never receive publishing credentials. Builds go to **preview**; a developer tests the build and selects **Publish to gamers** in the portal. Existing releases remain available for rollback.
 
-1. Sign in to the [developer portal](https://gamenight.ontola.io/developers/publishing). Ask the GameNight operator to register ownership of an existing catalog game; new games start with an owned submission.
+1. Sign in to the [developer portal](https://gamenight.ontola.io/developers/publishing). Ask the Gamepad Party operator to register ownership of an existing catalog game; new games start with an owned submission.
 2. Create an upload-only API key for this game. Save the one-time secret immediately.
 3. In GitHub Settings → Environments, create an environment named `gamenight`. Add an environment secret named `GAMENIGHT_API_TOKEN` with the game's key. Limit deployment branches to trusted release refs.
 4. Once ownership, runtime metadata and keys are configured, set repository Actions variable `GAMENIGHT_PUBLISH_ENABLED` to `true`.

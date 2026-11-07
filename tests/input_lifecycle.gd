@@ -94,7 +94,7 @@ func run() -> void:
 	game.party.handle({"type": "prepare", "session": "six", "players": [], "seats": seats})
 	game.party.handle({"type": "start", "session": "six"})
 	game.party.handle({"type": "controller_frame", "controllers": frames})
-	check(game.humans == 6 and game.sim.players.size() == 6, "six GameNight seats create six outfield units")
+	check(game.humans == 6 and game.sim.players.size() == 6, "six Gamepad Party seats create six outfield units")
 	for seat in 6:
 		var control: Dictionary = game.read_single_control(seat)
 		check(control.move.x > .9 and control.shoot, "seat %d uses left stick and shoulders for one unit" % seat)
@@ -103,7 +103,7 @@ func run() -> void:
 	seats.pop_back()
 	game.party.handle({"type": "prepare", "session": "five", "players": [], "seats": seats})
 	game.party.handle({"type": "start", "session": "five"})
-	check(game.humans == 5 and game.sim.players.size() == 6 and game.sim.players[5].human == -1, "five-player GameNight party gets one bot")
+	check(game.humans == 5 and game.sim.players.size() == 6 and game.sim.players[5].human == -1, "five-player Gamepad Party party gets one bot")
 	game.free()
 	print("INPUT_LIFECYCLE_RESULT ", failures, " failures")
 	quit(1 if failures else 0)
