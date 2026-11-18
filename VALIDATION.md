@@ -48,7 +48,7 @@ Physical controllers were not connected during this run. Their actual button
 feel, multi-device focus switching and audible output still need a playtest.
 The system audio backend reported an unavailable output format; automated
 renders used Godot's Dummy audio driver. Original WAV effects are included.
-No Android build, online play, remote publication or Gamepad Party certification
+No Android build, online play, remote publication or Splitscreen Club certification
 was performed. This is a locally registered, playable prototype.
 # Larger teams, control markers and keeper impacts
 
@@ -58,10 +58,10 @@ was performed. This is a locally registered, playable prototype.
   independent movement, expanded goal boundaries and odd-party AI filling.
 - Seeded contact trials: 284/300 saves at speed 20, 192/300 at 38 and 117/300
   at 55. Fast contact pushes the keeper back; misses have a recovery interval.
-- Gamepad Party lifecycle tests cover six opaque controller tokens, one unit each,
+- Splitscreen Club lifecycle tests cover six opaque controller tokens, one unit each,
   neutral stale input, and a five-seat party with a bot. The packaged build's
   real WebSocket test exercises the 3v3 game ID and six seats.
 - Visual captures reviewed at 1440x810 for 1v1 and 3v3: transparent antialiased
   control markers, team arrows, full pitch visibility and unchanged goal size.
-- Current Gamepad Party host lobby is still limited to four seats. Game-side six-seat
+- Current Splitscreen Club host lobby is still limited to four seats. Game-side six-seat
   support is tested, but six physical controllers through that host are not supported.

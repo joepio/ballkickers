@@ -50,7 +50,7 @@ The two units keep their left/right assignments throughout the match.
 
 Start / Escape opens the time-out menu: Resume, New match, Matchup, match
 length and chaos. A matchup picked there (including 3-way) starts with New match;
-under Gamepad Party it is also stored as the `matchup` setting. Y / Tab returns to
+under Splitscreen Club it is also stored as the `matchup` setting. Y / Tab returns to
 the menu while paused (standalone only). F11 toggles
 fullscreen. **Controls → Classic** retains the earlier experiment and AI code:
 1–4 people, X / J shoots with the ball or tackles without, A / K passes,
@@ -124,7 +124,7 @@ straight into the lens, the winning coach going wild on the touchline, the other
 coach with hands on head, and the scoring team's stand. The two coaches (suit,
 team tie and cap, one moustache, one pair of glasses) pace the touchline during
 play and point at the ball when it comes near. A, Start or a shoulder button (Enter,
-Space, Esc, Q or Ctrl on keyboard) skips it. The Gamepad Party `replays` setting
+Space, Esc, Q or Ctrl on keyboard) skips it. The Splitscreen Club `replays` setting
 turns them off. Replays only re-render recorded snapshots; the match state is
 restored exactly afterwards (`tests/replay.gd`).
 
@@ -153,34 +153,34 @@ within about 15 seconds:
   flattened and loses the ball; a ball that rolls in gets booted out. As rare
   as the second ball.
 
-Menu **Chaos** (or the Gamepad Party `chaos` setting) selects Off, Some (default,
+Menu **Chaos** (or the Splitscreen Club `chaos` setting) selects Off, Some (default,
 roughly one event every 40 seconds of play) or Lots. Events use their own seeded
 random stream, so the match's AI and keeper rolls are unchanged.
 `-- --demo --chaos=dog` forces an event at kickoff and
 `tools/capture_chaos.gd` renders one mid-event.
 
-## Gamepad Party
+## Splitscreen Club
 
 `tools/register_gamenight.ps1` adds this local build without replacing other
-local games. Restart Gamepad Party to refresh the local shelf.
+local games. Restart Splitscreen Club to refresh the local shelf.
 Both local and published registrations use one **Ballkickers** entry, which
 automatically selects 1v1 for one/two humans,
 3-way for three, 2v2 for four, or 3v3 for five/six. The party can override this using the
 Matchup setting; changes apply to the next match.
 The registration script removes legacy mode-specific entries and uses the
-latest build without forcing a team size. The game adapter supports six human seats; the current Gamepad Party
+latest build without forcing a team size. The game adapter supports six human seats; the current Splitscreen Club
 lobby exposes only four. Consequently, 3v3 can currently launch there with bots
 in the remaining places, but six humans require a host with six-seat support.
 Windows XInput also limits conventional XInput controllers to four.
 
-The game uses the [Gamepad Party Godot SDK](https://github.com/ontola/gamepad-party/tree/main/sdk/godot),
+The game uses the [Splitscreen Club Godot SDK](https://github.com/ontola/gamepad-party/tree/main/sdk/godot),
 vendored in `addons/gamenight` (license in `third_party/GameNight-LICENSE.txt`)
-and kept identical to Gamepad Party `main`; CI fails when it falls behind. The SDK
+and kept identical to Splitscreen Club `main`; CI fails when it falls behind. The SDK
 owns the connection, lifecycle and window handling; `src/party.gd` maps it onto
 Ballkickers' seats and profiles. Host controller frames are authoritative. Opaque device tokens retain ownership; stale input is
 neutral after 250 ms. Managed sessions skip the menu, prepare off-screen, freeze
 and hide on host pause, resume the same state, and support repeated sessions.
-Back/Select returns to Gamepad Party. Start opens the in-game time-out menu, also under Gamepad Party.
+Back/Select returns to Splitscreen Club. Start opens the in-game time-out menu, also under Splitscreen Club.
 Each person's pixel portrait and name are on a big fan board in their team's end of the back stand; the HUD only shows the portrait.
 New players join at the next session (`instant_join: false`). Local multiplayer
 only; no online netcode. A managed match automatically rematches after nine seconds.
@@ -215,7 +215,7 @@ Fonts: Lilita One and Fredoka, both SIL Open Font License (`third_party/FONTS-OF
 
 Shots have 33 ms of hit-stop and successful impacts 50 ms, capped rather than stacked.
 
-This is a first playable prototype, not a certified Gamepad Party release.
+This is a first playable prototype, not a certified Splitscreen Club release.
 Physical multi-controller testing and match balance still benefit from playtests.
 
 ## Releases
@@ -232,4 +232,4 @@ bot-driven gameplay, not footage of a human match. See the harness for seeds.
 
 ## Assistant controls
 
-See [Gamepad Party settings](docs/gamenight-settings.md) for all supported tweaks, their ranges and when they apply. The phone and lobby assistant discover these controls automatically from the running game.
+See [Splitscreen Club settings](docs/gamenight-settings.md) for all supported tweaks, their ranges and when they apply. The phone and lobby assistant discover these controls automatically from the running game.
