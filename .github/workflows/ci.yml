@@ -25,7 +25,7 @@ jobs:
           path: build/web/
           if-no-files-found: error
   gamenight-sdk:
-    uses: ontola/gamepad-party/.github/workflows/godot-sdk-check.yml@main
+    uses: ontola/splitscreen-club/.github/workflows/godot-sdk-check.yml@main
   crowd-sound:
     uses: joepio/godot-crowd-sound/.github/workflows/sync-check.yml@main
   windows:
@@ -38,7 +38,7 @@ jobs:
           python-version: '3.12'
       - name: Install pinned Godot 4.5.2
         id: godot
-        uses: ontola/gamepad-party/.github/actions/setup-godot@main
+        uses: ontola/splitscreen-club/.github/actions/setup-godot@main
         with:
           version: 4.5.2
       - name: Build and test
