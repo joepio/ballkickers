@@ -233,3 +233,7 @@ bot-driven gameplay, not footage of a human match. See the harness for seeds.
 ## Assistant controls
 
 See [Splitscreen Club settings](docs/gamenight-settings.md) for all supported tweaks, their ranges and when they apply. The phone and lobby assistant discover these controls automatically from the running game.
+
+## Browser build
+
+Install Godot 4.5.2 and its matching web export templates, then run `./tools/build-web.ps1 -Godot /path/to/godot` from the repository root. Serve `build/web/` over HTTP to play in a browser. The same build accepts the Splitscreen Club session and controller protocol when the lobby embeds it on the same origin. The CI artifact `ballkickers-web` includes the game, browser bridge and license notices.
