@@ -1,6 +1,6 @@
 # Ballkickers
 
-[Download for Windows](https://github.com/joepio/ballkickers/releases/latest)
+[Play in browser](https://splitscreen.club/play/godot/ballkickers/) · [Download for Windows](https://github.com/joepio/ballkickers/releases/latest)
  · [Gameplay preview](https://github.com/joepio/ballkickers/raw/main/assets/preview.mp4)
 
 ![Ballkickers gameplay](assets/gameplay.jpg)
