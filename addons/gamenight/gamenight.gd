@@ -787,3 +787,15 @@ func _handle(msg: Variant) -> void:
 			companion_presence.emit(str(msg.get("player_id", "")), bool(msg.get("connected", false)))
 		PROTOCOL.MSG_ERROR:
 			push_warning("Splitscreen Club daemon: %s" % msg.get("message", "unknown error"))
+
+func _open_browser_parent() -> bool:
+	if not _browser_transport.attach(_handle): return false
+	launched_by_daemon = true
+	auto_reconnect = false
+	_browser_hello.call_deferred()
+	return true
+
+func _browser_hello() -> void:
+	await get_tree().process_frame
+	_said_hello = true
+	_send({"type": PROTOCOL.MSG_HELLO, "role": PROTOCOL.ROLE_GAME, "game": game_id, "protocol_version": PROTOCOL_VERSION})

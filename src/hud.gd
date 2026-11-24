@@ -10,7 +10,7 @@ const BLUE = Color("58caff")
 var game: Node
 var font: Font
 var bold: Font
-var scale_factor := 1.0
+const DESIGN_SIZE := Vector2(1600, 900)
 var hit_rects: Array = []
 var control_icons: Array[Texture2D] = []
 var fade := 1.0
@@ -18,8 +18,14 @@ var fade := 1.0
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preload("res://src/stadium.gd").fonts()
-	font = preload("res://src/stadium.gd").round_font
-	bold = preload("res://src/stadium.gd").display_font
+	# A small browser window can rasterize the base 1600-pixel canvas fonts at a
+	# fraction of their requested size before the HUD transform enlarges them.
+	var regular: FontVariation = preload("res://src/stadium.gd").round_font.duplicate()
+	regular.base_font = regular.base_font.duplicate()
+	font = regular
+	bold = preload("res://src/stadium.gd").display_font.duplicate()
+	resized.connect(update_font_density)
+	update_font_density()
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	# Analytic coverage at 4x display resolution: transparent background and
 	# smooth inner/outer edges, including the straight edge of the half disc.
@@ -38,6 +44,11 @@ func _ready() -> void:
 				var alpha := fill if variant == 3 else maxf(outer - inner, fill * .78)
 				pixels.set_pixel(x, y, Color(1, 1, 1, alpha))
 		control_icons.append(ImageTexture.create_from_image(pixels))
+
+func update_font_density() -> void:
+	var density := maxf(1.0, get_viewport().get_stretch_transform().get_scale().x)
+	(bold as FontFile).oversampling = density
+	((font as FontVariation).base_font as FontFile).oversampling = density
 
 func identity_color(p: Dictionary) -> Color:
 	return [CREAM, GOLD, Color("d6b5ff")][int(p.human / 2) % 3]
@@ -69,22 +80,48 @@ func button_icon(letter: String, pos: Vector2, color: Color, radius: float = 16)
 	var width := bold.get_string_size(letter, HORIZONTAL_ALIGNMENT_LEFT, -1, int(radius * 1.15)).x
 	text(letter, pos + Vector2(-width / 2, radius * .42), int(radius * 1.15), INK, true)
 
+# Centre match overlays and fit the menu by its panel width. Scale both axes equally.
+func layout_transform(menu: bool) -> Transform2D:
+	var fit_width := 720.0
+	if menu: fit_width = 640.0
+	elif game.paused and size.x < size.y: fit_width = 580.0
+	var scale_by := minf(size.x / fit_width, size.y / DESIGN_SIZE.y)
+	var origin := (size - DESIGN_SIZE * scale_by) * .5
+	if menu:
+		origin.x = (size.x - 615.0 * scale_by) * .5 if size.x < size.y else 0.0
+	return Transform2D(0.0, Vector2.ONE * scale_by, 0.0, origin)
+
+func row_at(viewport_position: Vector2) -> int:
+	var position_in_layout := layout_transform(game.menu).affine_inverse() * (get_global_transform_with_canvas().affine_inverse() * viewport_position)
+	for i in hit_rects.size():
+		if hit_rects[i].has_point(position_in_layout): return i
+	return -1
+
 func _draw() -> void:
 	if game == null or game.sim == null: return
-	scale_factor = size.x / 1600.0
-	draw_set_transform(Vector2.ZERO, 0, Vector2(scale_factor, size.y / 900))
+	var layout := layout_transform(game.menu)
+	draw_set_transform_matrix(layout)
+	var visible_area := layout.affine_inverse() * Rect2(Vector2.ZERO, size)
 	hit_rects.clear()
 	if game.menu:
-		draw_menu()
+		draw_menu(visible_area)
 		return
 	var s = game.sim
-	# Score, clock and power meters are on the stadium screen; the HUD stays clear.
+	# Wide layouts use the stadium scoreboard. On a phone it is too small to read.
+	if size.x < size.y:
+		var seconds := ceili(s.clock)
+		var score := "  –  ".join(s.score.map(func(n): return str(n)))
+		var clock := "GOLDEN GOAL" if s.overtime else "%d:%02d" % [seconds / 60, seconds % 60]
+		var top := visible_area.position.y + 30.0
+		panel(Rect2(656, top, 288, 100), INK, 20)
+		centered(score, top + 48, 42, CREAM)
+		centered(clock, top + 80, 25, GOLD)
 	# World-anchored player indicators and stamina.
 	for i in s.players.size():
 		var p: Dictionary = s.players[i]
 		if p.human < 0 or game.replay_showing(): continue
 		var position: Vector2 = game.camera.unproject_position(Vector3(p.pos.x, 2.85, p.pos.y))
-		position /= Vector2(size.x / 1600.0, size.y / 900.0)
+		position = layout.affine_inverse() * position
 		var color: Color = TEAM_COLORS[p.team]
 		var icon := position + Vector2(0, -12)
 		var icon_rect := Rect2(icon - Vector2(13, 13), Vector2(26, 26))
@@ -96,9 +133,8 @@ func _draw() -> void:
 			var unit_pos := Vector3(p.pos.x, .12, p.pos.y)
 			var arrow_start: Vector2 = game.camera.unproject_position(unit_pos + Vector3(facing.x, 0, facing.y) * .85)
 			var arrow_end: Vector2 = game.camera.unproject_position(unit_pos + Vector3(facing.x, 0, facing.y) * length)
-			var viewport_scale := Vector2(size.x / 1600.0, size.y / 900.0)
-			arrow_start /= viewport_scale
-			arrow_end /= viewport_scale
+			arrow_start = layout.affine_inverse() * arrow_start
+			arrow_end = layout.affine_inverse() * arrow_end
 			var arrow_dir := (arrow_end - arrow_start).normalized()
 			var normal := Vector2(-arrow_dir.y, arrow_dir.x)
 			var arrow_color: Color = color
@@ -111,9 +147,18 @@ func _draw() -> void:
 			draw_rect(Rect2(position + Vector2(-24, -32), Vector2(48 * p.stamina, 4)), color)
 		if game.party.managed and (not s.dual_control or p.human % 2 == 0):
 			var profile: Dictionary = p.get("profile", {})
-			var center := Vector2([52, 1360, 706][p.team], (650 if p.team < 2 else 40) + (0 if s.three_way else (p.human / 4 if s.dual_control else p.human / s.teams)) * 57)
-			# Names live on the fans' boards in the stand; the HUD keeps the face.
-			panel(Rect2(center - Vector2(28, 25), Vector2(56 if s.dual_control else 92, 51)), INK, 12)
+			var stacked := size.x < size.y
+			var card_width := 242.0 if stacked else minf(196.0, (visible_area.size.x - 64.0) / 6.0)
+			var slot: int = 0 if s.three_way else (p.human / 4 if s.dual_control else p.human / s.teams)
+			var inset := 16.0 if stacked else 16.0 + slot * (card_width + 4.0)
+			var x := visible_area.position.x + inset
+			var y := visible_area.end.y - (226.0 - slot * 57.0 if stacked else 100.0)
+			if p.team == 1: x = visible_area.end.x - inset - card_width
+			elif p.team == 2:
+				x = visible_area.get_center().x - card_width * .5
+				y = visible_area.position.y + (144.0 if stacked else 16.0)
+			var center := Vector2(x + 28.0, y + 25.0)
+			panel(Rect2(x, y, card_width, 51), INK, 12)
 			draw_circle(center, 18, Color.from_string(str(profile.get("skin_color", "#fff2d2")), CREAM))
 			var avatar: String = str(profile.get("avatar", ""))
 			if game.profile_textures.has(avatar):
@@ -124,11 +169,24 @@ func _draw() -> void:
 			else:
 				draw_circle(center + Vector2(-5, -1), 2, INK)
 				draw_circle(center + Vector2(5, -1), 2, INK)
-			if not s.dual_control: draw_texture_rect(control_icons[3], Rect2(center + Vector2(28, -12), Vector2(24, 24)), false, identity_color(p))
+			var label_x := 28.0
+			if not s.dual_control:
+				draw_texture_rect(control_icons[3], Rect2(center + Vector2(21, -10), Vector2(20, 20)), false, identity_color(p))
+				label_x = 48.0
+			draw_string(bold, center + Vector2(label_x, 8), str(p.name), HORIZONTAL_ALIGNMENT_LEFT, card_width - label_x - 36.0, 25 if stacked else 21, CREAM)
 	# Controls are a reminder for the opening seconds, then they get out of the way.
 	var hint := clampf((9.0 - s.elapsed) / 1.5, 0, 1)
 	if hint > 0 and not game.replay_showing():
-		draw_hints(hint)
+		draw_set_transform_matrix(layout.translated_local(Vector2(0, visible_area.end.y - DESIGN_SIZE.y)))
+		if size.x < size.y:
+			fade = hint
+			panel(Rect2(480, 848, 640, 40), INK, 14)
+			var hint_text := "L STICK  MOVE     LB / RB  KICK" if s.arcade_control else "MOVE / AIM     SHOOT / TACKLE"
+			centered(hint_text, 876, 20)
+			fade = 1.0
+		else:
+			draw_hints(hint)
+		draw_set_transform_matrix(layout)
 	if game.replay_showing(): pass
 	elif s.phase == "kickoff":
 		loud("GET READY", 380, 22, GOLD)
@@ -155,13 +213,14 @@ func _draw() -> void:
 		draw_circle(Vector2(800 - width / 2 + 18, 811), 5, GOLD if fmod(game.run_time, .8) < .4 else CREAM)
 		text(label, Vector2(800 - width / 2 + 32, 817), 15, CREAM, true)
 	if game.paused:
-		draw_rect(Rect2(0, 0, 1600, 900), Color(.04, .09, .13, .64))
+		draw_rect(visible_area, Color(.04, .09, .13, .64))
 		var rows: Array = game.pause_rows()
 		var top := 450 - (rows.size() * 57 + 190) / 2.0
 		panel(Rect2(540, top, 520, rows.size() * 57 + 190), INK, 24)
 		draw_game_logo(Rect2(610, top + 22, 380, 120))
 		for i in rows.size():
 			var rect := Rect2(570, top + 160 + i * 57, 460, 50)
+			hit_rects.append(rect)
 			var active: bool = i == game.pause_selection
 			if active: panel(rect, GOLD if i < 2 or i == 5 else Color("294457"), 12)
 			var parts: PackedStringArray = rows[i].split("  ", false)
@@ -170,7 +229,7 @@ func _draw() -> void:
 			if active and parts.size() > 1: text("‹   ›", rect.position + Vector2(382, 33), 25, GOLD, true)
 		if game.pause_selection == 2 and game.pause_matchup != game.current_matchup():
 			centered("STARTS WITH NEW MATCH", top + rows.size() * 57 + 178, 14, Color("a8c1c7"))
-	draw_replay(s)
+	draw_replay()
 	if game.show_stats:
 		text("%d FPS  ·  %d DRAWS" % [Engine.get_frames_per_second(), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)], Vector2(25, 38), 17, INK)
 
@@ -193,9 +252,12 @@ func draw_hints(alpha: float) -> void:
 		text("RT  SPRINT     LB  SWITCH", Vector2(895, 867), 15)
 	fade = 1.0
 
-func draw_menu() -> void:
-	draw_rect(Rect2(0, 0, 615, 900), Color(.06, .12, .18, .96))
-	draw_colored_polygon(PackedVector2Array([Vector2(615, 0), Vector2(715, 0), Vector2(615, 900)]), Color(.06, .12, .18, .96))
+func draw_menu(visible_area: Rect2) -> void:
+	if size.x < size.y:
+		draw_rect(visible_area, Color(.06, .12, .18, .93))
+	else:
+		draw_rect(Rect2(0, 0, 615, 900), Color(.06, .12, .18, .96))
+		draw_colored_polygon(PackedVector2Array([Vector2(615, 0), Vector2(715, 0), Vector2(615, 900)]), Color(.06, .12, .18, .96))
 	text("PARTY FOOTBALL", Vector2(64, 82), 19, GOLD, true)
 	draw_game_logo(Rect2(55, 140, 505, 190))
 	text("More friends. Bigger trouble.", Vector2(66, 375), 25, CREAM)
@@ -228,23 +290,25 @@ func draw_menu() -> void:
 		text("SHIFT sprint    SPACE switch    F11 fullscreen", Vector2(65, 838), 16, CREAM)
 	text("A / ENTER  START     ↑ ↓  SELECT     ← →  CHANGE", Vector2(65, 880), 14, GOLD)
 
-func draw_replay(s) -> void:
+func draw_replay() -> void:
 	var r = game.replay
 	if not r.active: return
 	var color: Color = TEAM_COLORS[r.team]
+	var replay_scale := minf(size.x / DESIGN_SIZE.x, size.y / DESIGN_SIZE.y)
+	var layout := Transform2D(0.0, Vector2.ONE * replay_scale, 0.0, (size - DESIGN_SIZE * replay_scale) * .5)
+	draw_set_transform_matrix(layout)
 	if game.replay_showing():
-		var scale := Vector2(size.x / 1600.0, size.y / 900.0)
-		draw_rect(Rect2(0, 0, 1600, 900), Color(1, .93, .78, .05))
+		draw_rect(layout.affine_inverse() * Rect2(Vector2.ZERO, size), Color(1, .93, .78, .05))
 		# Broadcast bug.
 		var tilt := Transform2D(-.06, Vector2(46, 46))
-		draw_set_transform_matrix(Transform2D.IDENTITY.scaled(Vector2(scale_factor, size.y / 900)) * tilt)
+		draw_set_transform_matrix(layout * tilt)
 		panel(Rect2(0, 0, 228, 58), INK, 14)
 		draw_circle(Vector2(30, 29), 9, Color("ff4a5c") if fmod(game.run_time, 1.0) < .6 else Color("7a2a33"))
 		text("REPLAY", Vector2(50, 43), 34, CREAM, true)
 		if r.slow_motion():
 			panel(Rect2(14, 62, 200, 32), GOLD, 10)
 			text("SUPER SLO-MO", Vector2(30, 86), 20, INK, true)
-		draw_set_transform(Vector2.ZERO, 0, Vector2(scale_factor, size.y / 900))
+		draw_set_transform_matrix(layout)
 		# Lower third: who, what the commentator thinks, and the speed gun.
 		if r.cursor > 25:
 			var slide := clampf((r.cursor - 25) / 18.0, 0, 1)

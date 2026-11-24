@@ -204,6 +204,11 @@ func _initialize() -> void:
 		for frame in 24000:
 			s.step(1.0 / 120)
 			if s.phase == "result": break
+		# A tied match plays golden goal until another goal is scored.
+		if s.overtime and s.phase != "result":
+			for frame in 120 * 60:
+				s.step(1.0 / 120)
+				if s.phase == "result": break
 		check(s.phase == "result" and s.stats.shots > 0 and s.stats.passes == 0, "dual-rules bot match %d finishes without passing (%s)" % [seed_value, str(s.score)])
 	print("RESULT ", failures, " failures")
 	quit(1 if failures > 0 else 0)
