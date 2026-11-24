@@ -126,7 +126,8 @@ func _ready() -> void:
 	add_child(cine)
 	cine.fov = 34
 	cine.far = 220
-	camera.fov = CAMERA_FOV
+	update_camera_framing()
+	get_viewport().size_changed.connect(update_camera_framing)
 	camera.far = 260
 	camera.current = true
 	aim_camera(Vector3(-9, 0, -1), 1.0)
@@ -612,6 +613,17 @@ func express(body: Node3D, mood: String, t: float, kicking: bool) -> void:
 	body.get_node("BrowL").position.y = 1.86 + (.04 if mood in ["cheer", "hurt"] else 0.0)
 	body.get_node("BrowR").position.y = body.get_node("BrowL").position.y
 
+## Retain the broadcast shot on narrower windows by preserving its horizontal field of view.
+func update_camera_framing() -> void:
+	var viewport_size := get_viewport().get_visible_rect().size
+	const DESIGN_ASPECT := 16.0 / 9.0
+	if viewport_size.x < viewport_size.y * DESIGN_ASPECT:
+		camera.keep_aspect = Camera3D.KEEP_WIDTH
+		camera.fov = rad_to_deg(2.0 * atan(tan(deg_to_rad(CAMERA_FOV) / 2.0) * DESIGN_ASPECT))
+	else:
+		camera.keep_aspect = Camera3D.KEEP_HEIGHT
+		camera.fov = CAMERA_FOV
+
 ## Where the main camera sits relative to the point it looks at: a little lower
 ## than straight-down isometric, so the players and stands read as 3D.
 func camera_offset(factor: float) -> Vector3:
@@ -935,6 +947,18 @@ func _input(event: InputEvent) -> void:
 		if key in [KEY_ENTER, KEY_SPACE, KEY_ESCAPE, KEY_Q, KEY_J, KEY_CTRL] or button in [JOY_BUTTON_A, JOY_BUTTON_START, JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_RIGHT_SHOULDER]:
 			replay.skip()
 		return
+	if (menu or paused) and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		# Godot also supplies this event for a tap. Hit testing uses the same layout as the drawn rows.
+		var row: int = hud.row_at(event.position)
+		if row >= 0:
+			if menu:
+				menu_selection = row
+				if row == 0: start_match()
+				else: adjust_menu(1)
+			else:
+				pause_selection = row
+				activate_pause()
+		return
 	if menu:
 		if key in [KEY_UP, KEY_W] or button == JOY_BUTTON_DPAD_UP: menu_selection = posmod(menu_selection - 1, 6)
 		if key in [KEY_DOWN, KEY_S] or button == JOY_BUTTON_DPAD_DOWN: menu_selection = (menu_selection + 1) % 6
@@ -943,13 +967,6 @@ func _input(event: InputEvent) -> void:
 		if key in [KEY_ENTER, KEY_SPACE] or button in [JOY_BUTTON_A, JOY_BUTTON_START]:
 			if menu_selection == 0 or button == JOY_BUTTON_START: start_match()
 			else: adjust_menu(1)
-		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			var pos: Vector2 = event.position / (get_viewport().get_visible_rect().size / Vector2(1600, 900))
-			for i in hud.hit_rects.size():
-				if hud.hit_rects[i].has_point(pos):
-					menu_selection = i
-					if i == 0: start_match()
-					else: adjust_menu(1)
 		if event is InputEventJoypadMotion and event.axis == JOY_AXIS_LEFT_Y:
 			var gate: int = previous.get("menu_axis", 0)
 			if absf(event.axis_value) > .65 and gate == 0:
